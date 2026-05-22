@@ -145,6 +145,10 @@ class LayoutEngine {
       gridArea: 'auto',
       gridColumnGap: '0',
       gridRowGap: '0',
+      gridGap: '0',
+      gridAutoFlow: 'row',
+      gridAutoColumns: 'auto',
+      gridAutoRows: 'auto',
       transform: 'none',
       transformOrigin: '50% 50%',
       opacity: '1',
@@ -157,7 +161,26 @@ class LayoutEngine {
       maxWidth: 'none',
       minHeight: 'auto',
       maxHeight: 'none',
-      aspectRatio: 'auto'
+      aspectRatio: 'auto',
+      wordWrap: 'normal',
+      overflowWrap: 'normal',
+      outline: 'none',
+      outlineWidth: '0',
+      outlineStyle: 'none',
+      outlineColor: 'currentColor',
+      outlineOffset: '0',
+      objectFit: 'fill',
+      objectPosition: '50% 50%',
+      resize: 'none',
+      cursor: 'auto',
+      pointerEvents: 'auto',
+      userSelect: 'auto',
+      boxShadow: 'none',
+      textShadow: 'none',
+      backdropFilter: 'none',
+      filter: 'none',
+      transition: 'all 0s ease 0s',
+      animation: 'none'
     };
     if (node.type === 'element') {
       if (['span', 'a', 'strong', 'em', 'b', 'i', 'u', 'code', 'small'].includes(node.tagName)) {
@@ -280,10 +303,35 @@ class LayoutEngine {
     let width = this.resolveWidth(node, maxWidth, margin, padding, border);
     let height = this.resolveHeight(node, maxHeight, margin, padding, border);
 
+    if (style.aspectRatio && style.aspectRatio !== 'auto') {
+      const ratioMatch = style.aspectRatio.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+      if (ratioMatch) {
+        const ratio = parseFloat(ratioMatch[1]) / parseFloat(ratioMatch[2]);
+        if (width !== 'auto' && !isNaN(width)) {
+          height = width / ratio;
+        } else if (height !== 'auto' && !isNaN(height)) {
+          width = height * ratio;
+        }
+      } else {
+        const ratio = parseFloat(style.aspectRatio);
+        if (!isNaN(ratio) && width !== 'auto' && !isNaN(width)) {
+          height = width / ratio;
+        } else if (!isNaN(ratio) && height !== 'auto' && !isNaN(height)) {
+          width = height * ratio;
+        }
+      }
+    }
+
     let relX = 0, relY = 0;
-    if (style.position === 'relative') {
+    if (style.position === 'relative' || style.position === 'sticky') {
       relX = this.parseLength(style.left, maxWidth) || 0;
       relY = this.parseLength(style.top, maxHeight) || 0;
+    }
+
+    if (style.position === 'sticky') {
+      if (style.top !== 'auto') {
+        relY = Math.max(relY, this.parseLength(style.top, maxHeight) || 0);
+      }
     }
 
     if (style.display === 'flex') {
@@ -334,6 +382,10 @@ class LayoutEngine {
     const finalWidth = Math.max(0, width);
     const finalHeight = Math.max(0, height);
 
+    const transform = this.parseTransform(style.transform);
+    const transformOrigin = this.parseTransformOrigin(style.transformOrigin);
+    const opacity = parseFloat(style.opacity) !== undefined ? parseFloat(style.opacity) : 1;
+
     node.jscsslayout = {
       x: isNaN(finalX) ? 0 : finalX,
       y: isNaN(finalY) ? 0 : finalY,
@@ -343,7 +395,10 @@ class LayoutEngine {
       padding: padding,
       border: border,
       _outerWidth: isNaN(outerWidth) ? 0 : outerWidth,
-      _outerHeight: isNaN(outerHeight) ? 0 : outerHeight
+      _outerHeight: isNaN(outerHeight) ? 0 : outerHeight,
+      opacity: opacity,
+      transform: transform,
+      transformOrigin: transformOrigin
     };
 
     let contentX = x + margin.left + border.left + padding.left + relX;
@@ -451,13 +506,18 @@ class LayoutEngine {
     const wrap = flexContainer.wrap || 'nowrap';
     const justify = flexContainer.justifyContent || 'flex-start';
     const alignItems = flexContainer.alignItems || 'stretch';
+    const alignContent = flexContainer.alignContent || 'stretch';
     const gap = flexContainer.gap || 0;
-    const columnGap = flexContainer.columnGap || 0;
-    const rowGap = flexContainer.rowGap || 0;
+    const columnGap = flexContainer.columnGap || gap || 0;
+    const rowGap = flexContainer.rowGap || gap || 0;
 
     const children = this.getVisibleChildren(node).filter(c => {
       const s = c.computedStyle || {};
       return s.display !== 'none' && s.display !== 'inline';
+    }).sort((a, b) => {
+      const orderA = parseInt(a.computedStyle?.order) || 0;
+      const orderB = parseInt(b.computedStyle?.order) || 0;
+      return orderA - orderB;
     });
 
     const finalMaxWidth = Math.max(0, maxWidth) || 800;
@@ -485,35 +545,9 @@ class LayoutEngine {
 
     let totalFlexGrow = 0;
     let totalFlexBasis = 0;
-    let numAutoWidth = 0;
+    let totalFlexShrink = 0;
 
-    for (let child of children) {
-      const childStyle = child.computedStyle || {};
-      const childMargin = this.parseBoxShorthand(childStyle);
-      const grow = parseFloat(childStyle.flexGrow) || 0;
-      const basis = this.parseLength(childStyle.flexBasis, contentWidth);
-      const childWidth = this.parseLength(childStyle.width, contentWidth);
-      totalFlexGrow += grow;
-      if (basis === 'auto' && childWidth === 'auto') {
-        numAutoWidth++;
-      } else if (basis !== 'auto') {
-        totalFlexBasis += (basis || 0) + (childMargin.left || 0) + (childMargin.right || 0);
-      } else if (childWidth !== 'auto') {
-        totalFlexBasis += (childWidth || 0) + (childMargin.left || 0) + (childMargin.right || 0);
-      }
-    }
-
-    const availableWidth = Math.max(0, contentWidth - (totalFlexBasis || 0) - (children.length - 1) * (columnGap || 0));
-    let unitGrow = totalFlexGrow > 0 && availableWidth > 0 ? availableWidth / totalFlexGrow : 0;
-
-    let currentX = contentX;
-    let currentY = contentY;
-    let maxRowHeight = 0;
-    let rowStartX = contentX;
-    let rowMaxHeight = 0;
-    let itemsInRow = [];
-
-    for (let child of children) {
+    const childItems = children.map(child => {
       const childStyle = child.computedStyle || {};
       const childMargin = this.parseBoxShorthand(childStyle);
       const grow = parseFloat(childStyle.flexGrow) || 0;
@@ -521,47 +555,167 @@ class LayoutEngine {
       const basis = this.parseLength(childStyle.flexBasis, contentWidth);
       let childWidth = this.parseLength(childStyle.width, contentWidth);
       let childHeight = this.parseLength(childStyle.height, contentHeight);
+      const alignSelf = childStyle.alignSelf || 'auto';
 
       if (childStyle.width === 'auto' && (childStyle.flexBasis === 'auto' || !childStyle.flexBasis)) {
-        childWidth = grow > 0 ? Math.max(0, unitGrow) : 50;
+        childWidth = 50;
       } else if (childStyle.flexBasis !== 'auto' && childStyle.flexBasis && childStyle.flexBasis !== '0') {
         childWidth = basis || 50;
       }
 
       if (childHeight === 'auto' || !childHeight) {
-        childHeight = childStyle.flexBasis !== 'auto' && childStyle.flexBasis ? (basis || 50) : 50;
+        childHeight = 50;
       }
 
-      const outerChildWidth = Math.max(0, (childWidth || 0) + (childMargin.left || 0) + (childMargin.right || 0));
-      const outerChildHeight = Math.max(0, (childHeight || 0) + (childMargin.top || 0) + (childMargin.bottom || 0));
+      totalFlexGrow += grow;
+      totalFlexShrink += shrink;
+      if (basis !== 'auto') {
+        totalFlexBasis += (basis || 0) + (childMargin.left || 0) + (childMargin.right || 0);
+      } else if (childWidth !== 'auto') {
+        totalFlexBasis += (childWidth || 0) + (childMargin.left || 0) + (childMargin.right || 0);
+      }
 
-      if (wrap === 'wrap' && currentX + outerChildWidth > contentX + contentWidth) {
-        currentX = rowStartX;
-        currentY += (rowMaxHeight || 0) + (rowGap || 0);
+      return {
+        node: child,
+        width: childWidth,
+        height: childHeight,
+        margin: childMargin,
+        grow,
+        shrink,
+        basis,
+        alignSelf
+      };
+    });
+
+    const availableWidth = Math.max(0, contentWidth - (totalFlexBasis || 0) - (children.length - 1) * columnGap);
+    let unitGrow = totalFlexGrow > 0 && availableWidth > 0 ? availableWidth / totalFlexGrow : 0;
+
+    const rows = [[]];
+    let currentRow = rows[0];
+    let currentX = contentX;
+    let currentY = contentY;
+    let rowMaxHeight = 0;
+
+    for (let item of childItems) {
+      const childWidth = item.grow > 0 ? (item.width || 0) + unitGrow * item.grow : item.width;
+      const outerChildWidth = Math.max(0, (childWidth || 0) + (item.margin.left || 0) + (item.margin.right || 0));
+      const outerChildHeight = Math.max(0, (item.height || 0) + (item.margin.top || 0) + (item.margin.bottom || 0));
+
+      if (wrap === 'wrap' && currentRow.length > 0 && currentX + outerChildWidth > contentX + contentWidth) {
+        rows.push([]);
+        currentRow = rows[rows.length - 1];
+        currentX = contentX;
+        currentY += rowMaxHeight + rowGap;
         rowMaxHeight = 0;
-        itemsInRow = [];
       }
 
-      let itemX = currentX + (childMargin.left || 0);
-      let itemY = currentY + (childMargin.top || 0);
-      let alignY = itemY;
-
-      if (alignItems === 'center') {
-        alignY = currentY + ((rowMaxHeight || 0) - outerChildHeight) / 2;
-      } else if (alignItems === 'flex-end') {
-        alignY = currentY + (rowMaxHeight || 0) - outerChildHeight;
-      }
-
-      this.layoutNode(child, itemX, alignY, childWidth, childHeight, node);
-
+      item.width = childWidth;
+      item.outerWidth = outerChildWidth;
+      item.outerHeight = outerChildHeight;
+      currentRow.push(item);
       currentX += outerChildWidth + columnGap;
-      maxRowHeight = Math.max(maxRowHeight, outerChildHeight);
-      itemsInRow.push(child);
+      rowMaxHeight = Math.max(rowMaxHeight, outerChildHeight);
     }
 
-    let totalHeight = currentY - contentY + maxRowHeight;
-    if (style.height === 'auto' || style.height === 'auto') {
-      node.jscsslayout.height = totalHeight;
+    let yOffset = contentY;
+    const totalContentHeight = rows.reduce((sum, row) => {
+      const rowHeight = Math.max(...row.map(i => i.outerHeight), 0);
+      return sum + rowHeight + (rows.length > 1 ? rowGap : 0);
+    }, 0) - (rows.length > 1 ? rowGap : 0);
+
+    if (alignContent === 'center' && rows.length > 1) {
+      yOffset += (contentHeight - totalContentHeight) / 2;
+    } else if (alignContent === 'flex-end' && rows.length > 1) {
+      yOffset += contentHeight - totalContentHeight;
+    } else if (alignContent === 'space-between' && rows.length > 1) {
+      const extraSpace = contentHeight - totalContentHeight;
+      const spacePerGap = rows.length > 1 ? extraSpace / (rows.length - 1) : 0;
+      let adjustedY = yOffset;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        row._y = adjustedY;
+        const rowHeight = Math.max(...row.map(j => j.outerHeight), 0);
+        adjustedY += rowHeight + (i < rows.length - 1 ? rowGap + spacePerGap : 0);
+      }
+    } else if (alignContent === 'space-around' && rows.length > 1) {
+      const extraSpace = contentHeight - totalContentHeight;
+      const spacePerSide = rows.length > 0 ? extraSpace / (rows.length * 2) : 0;
+      let adjustedY = yOffset + spacePerSide;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        row._y = adjustedY;
+        const rowHeight = Math.max(...row.map(j => j.outerHeight), 0);
+        adjustedY += rowHeight + rowGap + (i < rows.length - 1 ? spacePerSide * 2 : 0);
+      }
+    }
+
+    for (const row of rows) {
+      const rowHeight = Math.max(...row.map(i => i.outerHeight), 0);
+      const rowWidth = row.reduce((sum, item, idx) => sum + item.outerWidth + (idx > 0 ? columnGap : 0), 0);
+      let xOffset = contentX;
+
+      if (justify === 'center') {
+        xOffset += (contentWidth - rowWidth) / 2;
+      } else if (justify === 'flex-end') {
+        xOffset += contentWidth - rowWidth;
+      } else if (justify === 'space-between' && row.length > 1) {
+        const extraSpace = contentWidth - rowWidth;
+        const spacePerItem = extraSpace / (row.length - 1);
+        let currentOffset = contentX;
+        for (let i = 0; i < row.length; i++) {
+          const item = row[i];
+          item._x = currentOffset;
+          currentOffset += item.outerWidth + columnGap + (i < row.length - 1 ? spacePerItem : 0);
+        }
+      } else if (justify === 'space-around' && row.length > 0) {
+        const extraSpace = contentWidth - rowWidth;
+        const spacePerSide = extraSpace / (row.length * 2);
+        let currentOffset = contentX + spacePerSide;
+        for (let i = 0; i < row.length; i++) {
+          const item = row[i];
+          item._x = currentOffset;
+          currentOffset += item.outerWidth + columnGap + spacePerSide * 2;
+        }
+      } else if (justify === 'space-evenly' && row.length > 0) {
+        const extraSpace = contentWidth - rowWidth;
+        const spacePerGap = extraSpace / (row.length + 1);
+        let currentOffset = contentX + spacePerGap;
+        for (let i = 0; i < row.length; i++) {
+          const item = row[i];
+          item._x = currentOffset;
+          currentOffset += item.outerWidth + columnGap + spacePerGap;
+        }
+      }
+
+      for (const item of row) {
+        let itemX = (item._x !== undefined ? item._x : xOffset) + (item.margin.left || 0);
+        let itemY = (row._y !== undefined ? row._y : yOffset) + (item.margin.top || 0);
+        let finalHeight = item.height;
+
+        const effectiveAlign = item.alignSelf !== 'auto' ? item.alignSelf : alignItems;
+        if (effectiveAlign === 'center') {
+          itemY = (row._y !== undefined ? row._y : yOffset) + (rowHeight - item.outerHeight) / 2 + (item.margin.top || 0);
+        } else if (effectiveAlign === 'flex-end' || effectiveAlign === 'end') {
+          itemY = (row._y !== undefined ? row._y : yOffset) + rowHeight - item.outerHeight + (item.margin.top || 0);
+        } else if (effectiveAlign === 'stretch' && item.height === 'auto') {
+          finalHeight = rowHeight - (item.margin.top || 0) - (item.margin.bottom || 0);
+        }
+
+        this.layoutNode(item.node, itemX, itemY, item.width, finalHeight, node);
+
+        if (item._x === undefined) {
+          xOffset += item.outerWidth + columnGap;
+        }
+      }
+
+      if (row._y === undefined) {
+        yOffset += rowHeight + rowGap;
+      }
+    }
+
+    let totalHeight = yOffset - contentY - (rows.length > 1 ? rowGap : 0);
+    if (style.height === 'auto') {
+      node.jscsslayout.height = Math.max(totalHeight, 0);
     }
   }
 
@@ -719,6 +873,10 @@ class LayoutEngine {
     const style = node.computedStyle || {};
     const gridContainer = node._gridContainer || { columns: [], rows: [] };
     const gap = this.parseLength(style.gap || '0', maxWidth) || 0;
+    const gridGap = this.parseLength(style.gridGap || '0', maxWidth) || gap;
+    const columnGap = this.parseLength(style.columnGap || '0', maxWidth) || gridGap;
+    const rowGap = this.parseLength(style.rowGap || '0', maxWidth) || gridGap;
+    const gridAutoFlow = style.gridAutoFlow || 'row';
 
     const outerWidth = maxWidth + margin.left + margin.right + border.left + border.right + padding.left + padding.right;
     const outerHeight = maxHeight + margin.top + margin.bottom + border.top + border.bottom + padding.top + padding.bottom;
@@ -739,13 +897,13 @@ class LayoutEngine {
     const contentY = y + margin.top + border.top + padding.top;
     const children = this.getVisibleChildren(node);
 
-    const columns = gridContainer.columns.length > 0 ? gridContainer.columns : [{ type: 'auto' }];
+    const columns = gridContainer.columns.length > 0 ? gridContainer.columns : [{ type: 'auto' }, { type: 'auto' }];
 
     const totalFr = columns.filter(c => c.type === 'fr').reduce((sum, c) => sum + c.value, 0);
     const fixedWidth = columns.filter(c => c.type === 'px').reduce((sum, c) => sum + c.value, 0);
     const autoCount = columns.filter(c => c.type === 'auto').length;
-    const frUnit = totalFr > 0 ? Math.max(0, (maxWidth - fixedWidth - gap * (columns.length - 1))) / totalFr : 0;
-    const autoWidth = autoCount > 0 ? Math.max(0, (maxWidth - fixedWidth - gap * (columns.length - 1))) / autoCount : 100;
+    const frUnit = totalFr > 0 ? Math.max(0, (maxWidth - fixedWidth - columnGap * (columns.length - 1))) / totalFr : 0;
+    const autoWidth = autoCount > 0 ? Math.max(0, (maxWidth - fixedWidth - columnGap * (columns.length - 1))) / autoCount : 100;
 
     const colWidths = columns.map(c => {
       if (c.type === 'fr') return Math.max(0, c.value * frUnit);
@@ -762,24 +920,25 @@ class LayoutEngine {
       const childMargin = this.parseBoxShorthand(childStyle);
       const gridColumn = childStyle.gridColumn || 'auto';
       const gridRow = childStyle.gridRow || 'auto';
+      const gridArea = childStyle.gridArea || 'auto';
 
       let colSpan = 1;
 
       const spanMatch = gridColumn.match(/span\s*(\d+)/i);
       if (spanMatch) colSpan = parseInt(spanMatch[1]);
 
-      const itemWidth = colWidths.slice(0, Math.min(colSpan, columns.length)).reduce((a, b) => a + b, 0) + (colSpan - 1) * gap;
+      const itemWidth = colWidths.slice(0, Math.min(colSpan, columns.length)).reduce((a, b) => a + b, 0) + (colSpan - 1) * columnGap;
       const itemHeight = 80;
 
-      if (itemsInRow > 0 && currentX + itemWidth > contentX + maxWidth) {
+      if (itemsInRow > 0 && currentX + itemWidth > contentX + maxWidth && gridAutoFlow === 'row') {
         currentX = contentX;
-        currentY += itemHeight + gap;
+        currentY += itemHeight + rowGap;
         itemsInRow = 0;
       }
 
-      this.layoutNode(child, currentX + childMargin.left, currentY + childMargin.top, itemWidth - childMargin.left - childMargin.right, itemHeight - childMargin.top - childMargin.bottom, node);
+      this.layoutNode(child, currentX + childMargin.left, currentY + childMargin.top, Math.max(0, itemWidth - childMargin.left - childMargin.right), Math.max(0, itemHeight - childMargin.top - childMargin.bottom), node);
 
-      currentX += itemWidth + gap;
+      currentX += itemWidth + columnGap;
       itemsInRow++;
     }
 
@@ -974,9 +1133,54 @@ class LayoutEngine {
     return result;
   }
 
+  parseCalc(value, containerWidth) {
+    if (!value || typeof value !== 'string') return 'auto';
+    const calcMatch = value.match(/calc\(([^)]+)\)/i);
+    if (!calcMatch) return 'auto';
+    let expr = calcMatch[1].trim();
+    expr = expr.replace(/(\d+(?:\.\d+)?)([a-z%]+)/gi, (match, num, unit) => {
+      const parsed = this.parseLength(num + unit, containerWidth);
+      return parsed === 'auto' ? match : parsed;
+    });
+    try {
+      const result = Function('"use strict";return (' + expr + ')')();
+      if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+        return result;
+      }
+    } catch (e) {}
+    return 'auto';
+  }
+
+  parseMinMaxClamp(value, containerWidth) {
+    if (!value || typeof value !== 'string') return 'auto';
+    const minMatch = value.match(/min\(([^)]+)\)/i);
+    if (minMatch) {
+      const parts = minMatch[1].split(',').map(p => p.trim());
+      const nums = parts.map(p => this.parseLength(p, containerWidth)).filter(n => typeof n === 'number');
+      if (nums.length > 0) return Math.min(...nums);
+    }
+    const maxMatch = value.match(/max\(([^)]+)\)/i);
+    if (maxMatch) {
+      const parts = maxMatch[1].split(',').map(p => p.trim());
+      const nums = parts.map(p => this.parseLength(p, containerWidth)).filter(n => typeof n === 'number');
+      if (nums.length > 0) return Math.max(...nums);
+    }
+    const clampMatch = value.match(/clamp\(([^)]+)\)/i);
+    if (clampMatch) {
+      const parts = clampMatch[1].split(',').map(p => p.trim());
+      const nums = parts.map(p => this.parseLength(p, containerWidth)).filter(n => typeof n === 'number');
+      if (nums.length >= 3) return Math.max(nums[0], Math.min(nums[1], nums[2]));
+    }
+    return 'auto';
+  }
+
   parseLength(value, containerWidth) {
     if (value === undefined || value === null || value === 'auto' || value === 'normal') return 'auto';
     if (typeof value === 'number') return value;
+    const calcResult = this.parseCalc(value, containerWidth);
+    if (calcResult !== 'auto') return calcResult;
+    const funcResult = this.parseMinMaxClamp(value, containerWidth);
+    if (funcResult !== 'auto') return funcResult;
     const pxMatch = value.match(/^(-?\d+(?:\.\d+)?)px$/);
     if (pxMatch) return parseFloat(pxMatch[1]);
     const percentMatch = value.match(/^(-?\d+(?:\.\d+)?)%$/);
@@ -1000,6 +1204,70 @@ class LayoutEngine {
     const numMatch = value.match(/^(-?\d+(?:\.\d+)?)$/);
     if (numMatch) return parseFloat(numMatch[1]);
     return 'auto';
+  }
+
+  parseTransform(transformStr) {
+    if (!transformStr || transformStr === 'none') return null;
+    const result = {
+      translateX: 0,
+      translateY: 0,
+      scaleX: 1,
+      scaleY: 1,
+      rotate: 0,
+      skewX: 0,
+      skewY: 0
+    };
+    const translateMatch = transformStr.match(/translate\(([^)]+)\)/i);
+    if (translateMatch) {
+      const parts = translateMatch[1].split(',').map(p => p.trim());
+      result.translateX = this.parseLength(parts[0], 100) || 0;
+      result.translateY = parts[1] ? (this.parseLength(parts[1], 100) || 0) : 0;
+    }
+    const translateXMatch = transformStr.match(/translateX\(([^)]+)\)/i);
+    if (translateXMatch) {
+      result.translateX = this.parseLength(translateXMatch[1], 100) || 0;
+    }
+    const translateYMatch = transformStr.match(/translateY\(([^)]+)\)/i);
+    if (translateYMatch) {
+      result.translateY = this.parseLength(translateYMatch[1], 100) || 0;
+    }
+    const scaleMatch = transformStr.match(/scale\(([^)]+)\)/i);
+    if (scaleMatch) {
+      const parts = scaleMatch[1].split(',').map(p => parseFloat(p.trim()));
+      result.scaleX = parts[0] || 1;
+      result.scaleY = parts[1] !== undefined ? parts[1] : result.scaleX;
+    }
+    const rotateMatch = transformStr.match(/rotate\(([^)]+)\)/i);
+    if (rotateMatch) {
+      const degMatch = rotateMatch[1].match(/(-?\d+(?:\.\d+)?)(deg)?/);
+      result.rotate = degMatch ? parseFloat(degMatch[1]) : parseFloat(rotateMatch[1]);
+    }
+    return result;
+  }
+
+  parseTransformOrigin(originStr) {
+    if (!originStr || originStr === '50% 50%') return { x: 0.5, y: 0.5 };
+    const parts = originStr.split(/\s+/).map(p => p.trim());
+    let x = 0.5, y = 0.5;
+    if (parts[0]) {
+      if (parts[0] === 'left') x = 0;
+      else if (parts[0] === 'right') x = 1;
+      else if (parts[0] === 'center') x = 0.5;
+      else {
+        const parsed = this.parseLength(parts[0], 100);
+        if (typeof parsed === 'number') x = parsed / 100;
+      }
+    }
+    if (parts[1]) {
+      if (parts[1] === 'top') y = 0;
+      else if (parts[1] === 'bottom') y = 1;
+      else if (parts[1] === 'center') y = 0.5;
+      else {
+        const parsed = this.parseLength(parts[1], 100);
+        if (typeof parsed === 'number') y = parsed / 100;
+      }
+    }
+    return { x, y };
   }
 
   layoutTable(node, x, y, maxWidth, maxHeight, margin, padding, border) {

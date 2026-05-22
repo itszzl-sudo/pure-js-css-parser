@@ -292,6 +292,145 @@ result = test('Table cell vertical align',
 );
 totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
 
+console.log('\n✨ ADVANCED CSS FEATURES TESTS');
+console.log('-'.repeat(30));
+
+result = test('Calc() Function', 
+  '<div id="box"></div>',
+  '#box { width: calc(100px + 50px); height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 140 && w <= 160, height: 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Min() Function', 
+  '<div id="box"></div>',
+  '#box { width: min(200px, 150px); height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 140 && w <= 160, height: 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Max() Function', 
+  '<div id="box"></div>',
+  '#box { width: max(100px, 150px); height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 140 && w <= 160, height: 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Opacity', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 80px; opacity: 0.5; }',
+  [{ id: 'jscss-1', expected: { opacity: (o) => o >= 0.4 && o <= 0.6 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Transform - Translate', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 80px; transform: translate(20px, 30px); }',
+  [{ id: 'jscss-1', expected: { transform: (t) => t !== null && typeof t === 'object' } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Transform - Scale', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 80px; transform: scale(1.5); }',
+  [{ id: 'jscss-1', expected: { transform: (t) => t !== null && typeof t === 'object' } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Transform - Rotate', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 80px; transform: rotate(45deg); }',
+  [{ id: 'jscss-1', expected: { transform: (t) => t !== null && typeof t === 'object' } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Transform Origin', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 80px; transform-origin: top left; }',
+  [{ id: 'jscss-1', expected: { transformOrigin: (t) => t !== undefined } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Aspect Ratio', 
+  '<div id="box"></div>',
+  '#box { width: 200px; aspect-ratio: 2/1; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 190 && w <= 210, height: (h) => h >= 90 && h <= 110 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Position Sticky', 
+  '<div id="container"><div id="box">Sticky</div></div>',
+  '#container { height: 200px; } #box { position: sticky; top: 10px; width: 100px; height: 50px; }',
+  [{ id: 'jscss-2', expected: { y: (y) => y >= 5, height: 50 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Justify Content - Space Between', 
+  '<div id="container"><div id="a"></div><div id="b"></div><div id="c"></div></div>',
+  '#container { display: flex; justify-content: space-between; width: 300px; } #a, #b, #c { width: 50px; height: 50px; }',
+  [
+    { id: 'jscss-1', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-2', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-3', expected: { x: (x) => x >= 0 } },
+    { id: 'jscss-4', expected: { x: (x) => x >= 0 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Justify Content - Space Around', 
+  '<div id="container"><div id="a"></div><div id="b"></div></div>',
+  '#container { display: flex; justify-content: space-around; width: 300px; } #a, #b { width: 50px; height: 50px; }',
+  [
+    { id: 'jscss-1', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-2', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-3', expected: { x: (x) => x >= 0 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Justify Content - Space Evenly', 
+  '<div id="container"><div id="a"></div><div id="b"></div></div>',
+  '#container { display: flex; justify-content: space-evenly; width: 300px; } #a, #b { width: 50px; height: 50px; }',
+  [
+    { id: 'jscss-1', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-2', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-3', expected: { x: (x) => x >= 0 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Gap', 
+  '<div id="container"><div id="a"></div><div id="b"></div><div id="c"></div></div>',
+  '#container { display: flex; gap: 20px; width: 300px; } #a, #b, #c { width: 50px; height: 50px; }',
+  [
+    { id: 'jscss-1', expected: { width: (w) => w > 0 } },
+    { id: 'jscss-2', expected: { width: (w) => w > 0 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Align Self', 
+  '<div id="container"><div id="a"></div><div id="b"></div><div id="c"></div></div>',
+  '#container { display: flex; align-items: flex-start; height: 100px; } #a { align-self: flex-end; width: 50px; height: 30px; } #b, #c { width: 50px; height: 30px; }',
+  [
+    { id: 'jscss-1', expected: { height: (h) => h > 0 } },
+    { id: 'jscss-2', expected: { height: (h) => h > 0 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Flex Order', 
+  '<div id="container"><div id="a">1</div><div id="b">2</div><div id="c">3</div></div>',
+  '#container { display: flex; } #a { order: 3; width: 50px; height: 50px; } #b { order: 1; width: 50px; height: 50px; } #c { order: 2; width: 50px; height: 50px; }',
+  [
+    { id: 'jscss-1', expected: { width: (w) => w >= 100 } },
+    { id: 'jscss-2', expected: { width: 50 } },
+    { id: 'jscss-3', expected: { width: 50 } },
+    { id: 'jscss-4', expected: { width: 50 } }
+  ]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
 console.log('\n' + '='.repeat(50));
 console.log(`📊 Results: ${totalPassed}/${totalTests} tests passed`);
 if (totalFailed > 0) {
