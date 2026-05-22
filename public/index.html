@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>JSCSS Layout Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      font-family: monospace;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #output {
+      grid-column: 1 / -1;
+    }
+    #rendered {
+      border: 1px solid #ccc;
+      padding: 10px;
+      min-height: 300px;
+    }
+    .node-box {
+      position: absolute;
+      border: 2px dashed red;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>JSCSS Layout Tool</h1>
+  <div class="container">
+    <div>
+      <h2>HTML</h2>
+      <textarea id="htmlInput">&lt;div id="container"&gt;
+  &lt;div class="box" style="width: 100px; height: 100px; background: red;"&gt;Box 1&lt;/div&gt;
+  &lt;div class="box" style="width: 200px; height: 150px; background: blue;"&gt;Box 2&lt;/div&gt;
+  &lt;span&gt;Inline text&lt;/span&gt;
+&lt;/div&gt;</textarea>
+    </div>
+    <div>
+      <h2>CSS</h2>
+      <textarea id="cssInput">#container {
+  width: 500px;
+  padding: 20px;
+  background: #eee;
+}
+.box {
+  margin: 10px;
+}</textarea>
+    </div>
+  </div>
+  <button id="computeBtn">Compute Layout</button>
+  <div id="output">
+    <h2>Rendered Preview with Layout</h2>
+    <div id="renderedContainer" style="position: relative; width: 800px; height: 600px; border: 1px solid #000;">
+      <div id="rendered"></div>
+    </div>
+    <h2>Layout Data</h2>
+    <pre id="layoutData"></pre>
+  </div>
+
+  <script>
+    document.getElementById('computeBtn').addEventListener('click', async () => {
+      const html = document.getElementById('htmlInput').value;
+      const css = document.getElementById('cssInput').value;
+
+      const response = await fetch('/api/compute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, css })
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      document.getElementById('rendered').innerHTML = data.html;
+      addLayoutBoxes(data.layout);
+      document.getElementById('layoutData').textContent = JSON.stringify(data.layout, null, 2);
+    });
+
+    function addLayoutBoxes(layoutData) {
+      const container = document.getElementById('renderedContainer');
+      const existingBoxes = container.querySelectorAll('.node-box');
+      existingBoxes.forEach(box => box.remove());
+
+      layoutData.forEach(item => {
+        if (item.jscsslayout.width === 0 || item.jscsslayout.height === 0) return;
+        const box = document.createElement('div');
+        box.className = 'node-box';
+        box.style.left = item.jscsslayout.x + 'px';
+        box.style.top = item.jscsslayout.y + 'px';
+        box.style.width = item.jscsslayout.width + 'px';
+        box.style.height = item.jscsslayout.height + 'px';
+        box.title = item.jscssid;
+        container.appendChild(box);
+      });
+    }
+  </script>
+</body>
+</html>

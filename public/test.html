@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>JSCSS Layout Test Suite</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    h2 { color: #666; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+    .test-section { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .test-input { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    textarea { width: 100%; height: 120px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 3px; padding: 5px; }
+    button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+    button:hover { background: #0056b3; }
+    .result { margin-top: 10px; }
+    .preview-container { position: relative; width: 100%; height: 200px; border: 1px solid #333; background: white; overflow: hidden; }
+    .layout-box { position: absolute; border: 2px dashed red; background: rgba(255,0,0,0.1); pointer-events: none; display: flex; align-items: center; justify-content: center; font-size: 10px; color: red; }
+    .layout-data { font-family: monospace; font-size: 11px; background: #f0f0f0; padding: 10px; border-radius: 3px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; }
+    .pass { color: green; font-weight: bold; }
+    .fail { color: red; font-weight: bold; }
+    .expected { color: #666; font-style: italic; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+    .tab { padding: 8px 16px; background: #e0e0e0; border: none; border-radius: 4px 4px 0 0; cursor: pointer; }
+    .tab.active { background: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+  <h1>JSCSS CSS Layout Test Suite</h1>
+  <p>测试所有CSS布局特性: Box Model, Display, Position, Float, Flexbox, Grid</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('boxmodel')">Box Model</button>
+    <button class="tab" onclick="showTab('display')">Display</button>
+    <button class="tab" onclick="showTab('position')">Position</button>
+    <button class="tab" onclick="showTab('float')">Float</button>
+    <button class="tab" onclick="showTab('flexbox')">Flexbox</button>
+    <button class="tab" onclick="showTab('grid')">Grid</button>
+    <button class="tab" onclick="showTab('table')">Table</button>
+    <button class="tab" onclick="showTab('text')">Text/Font</button>
+  </div>
+
+  <div id="tab-boxmodel" class="tab-content active">
+    <div class="test-section">
+      <h2>Box Model Test 1: Margin</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-boxmodel1"><div id="box"></div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-boxmodel1">#box {
+  margin: 20px;
+  width: 100px;
+  height: 100px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('boxmodel1', { x: 20, y: 20, width: 100, height: 100 })">Run Test</button>
+      <div class="result" id="result-boxmodel1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Box Model Test 2: Margin + Padding + Border</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-boxmodel2"><div id="box"></div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-boxmodel2">#box {
+  margin: 10px;
+  padding: 20px;
+  border: 5px solid black;
+  width: 100px;
+  height: 80px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('boxmodel2', { x: 35, y: 35, width: 100, height: 80 })">Run Test</button>
+      <div class="result" id="result-boxmodel2"></div>
+    </div>
+  </div>
+
+  <div id="tab-display" class="tab-content">
+    <div class="test-section">
+      <h2>Display Test: Block vs Inline</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-display1"><div id="block">Block</div>
+<span id="inline">Inline</span></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-display1">#block {
+  width: 150px;
+  height: 50px;
+  background: #ff6b6b;
+}
+#inline {
+  width: 100px;
+  height: 30px;
+  background: #4ecdc4;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('display1', [{ id: 'jscss-0', expected: { x: 0, y: 0 } }, { id: 'jscss-1', expected: { x: 150, y: 0 } }])">Run Test</button>
+      <div class="result" id="result-display1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Display Test: None</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-display2"><div id="visible">Visible</div>
+<div id="hidden" style="display:none;">Hidden</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-display2">#visible {
+  width: 100px;
+  height: 50px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('display2', [{ id: 'jscss-1', expected: { width: 0, height: 0 } }])">Run Test</button>
+      <div class="result" id="result-display2"></div>
+    </div>
+  </div>
+
+  <div id="tab-position" class="tab-content">
+    <div class="test-section">
+      <h2>Position Test: Relative</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-position1"><div id="box"></div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-position1">#box {
+  position: relative;
+  top: 30px;
+  left: 20px;
+  width: 100px;
+  height: 80px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('position1', { x: 20, y: 30, width: 100, height: 80 })">Run Test</button>
+      <div class="result" id="result-position1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Position Test: Absolute</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-position2"><div id="parent" style="width:400px;height:300px;position:relative;">
+  <div id="child"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-position2">#child {
+  position: absolute;
+  top: 50px;
+  left: 30px;
+  width: 120px;
+  height: 90px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('position2', { x: 30, y: 50, width: 120, height: 90 })">Run Test</button>
+      <div class="result" id="result-position2"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Position Test: Fixed</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-position3"><div id="fixed"></div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-position3">#fixed {
+  position: fixed;
+  top: 100px;
+  left: 50px;
+  width: 200px;
+  height: 100px;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('position3', { x: 50, y: 100, width: 200, height: 100 })">Run Test</button>
+      <div class="result" id="result-position3"></div>
+    </div>
+  </div>
+
+  <div id="tab-float" class="tab-content">
+    <div class="test-section">
+      <h2>Float Test: Left</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-float1"><div id="container">
+  <div id="floated" style="float:left;"></div>
+  <div id="content">Content wraps around</div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-float1">#container { width: 300px; }
+#floated { width: 100px; height: 100px; background: #ff6b6b; }
+#content { height: 60px; background: #4ecdc4; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('float1', [{ id: 'jscss-1', expected: { x: 0, y: 0, width: 100, height: 100 } }])">Run Test</button>
+      <div class="result" id="result-float1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Float Test: Clear</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-float2"><div id="container">
+  <div id="f1" style="float:left;"></div>
+  <div id="f2" style="float:left;"></div>
+  <div id="clear" style="clear:both;"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-float2">#container { width: 200px; }
+#f1, #f2 { width: 80px; height: 60px; }
+#clear { height: 40px; background: #ccc; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('float2', [{ id: 'jscss-2', expected: { y: 60 } }])">Run Test</button>
+      <div class="result" id="result-float2"></div>
+    </div>
+  </div>
+
+  <div id="tab-flexbox" class="tab-content">
+    <div class="test-section">
+      <h2>Flexbox Test: Row</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-flex1"><div id="flex" style="display:flex;">
+  <div id="item1"></div>
+  <div id="item2"></div>
+  <div id="item3"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-flex1">#flex { width: 400px; }
+#item1, #item2, #item3 { width: 80px; height: 50px; margin: 5px; }
+#item1 { background: #ff6b6b; }
+#item2 { background: #4ecdc4; }
+#item3 { background: #ffe66d; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('flex1', [{ id: 'jscss-1', expected: { x: 5 } }, { id: 'jscss-2', expected: { x: 90 } }, { id: 'jscss-3', expected: { x: 175 } }])">Run Test</button>
+      <div class="result" id="result-flex1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Flexbox Test: Justify Content</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-flex2"><div id="flex" style="display:flex;justify-content:space-between;">
+  <div id="item1"></div>
+  <div id="item2"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-flex2">#flex { width: 300px; }
+#item1, #item2 { width: 80px; height: 40px; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('flex2', [{ id: 'jscss-1', expected: { x: 0 } }, { id: 'jscss-2', expected: { x: 220 } }])">Run Test</button>
+      <div class="result" id="result-flex2"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Flexbox Test: Flex Grow</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-flex3"><div id="flex" style="display:flex;">
+  <div id="fixed"></div>
+  <div id="growing" style="flex-grow:1;"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-flex3">#flex { width: 400px; }
+#fixed { width: 100px; height: 50px; background: #ff6b6b; }
+#growing { height: 50px; background: #4ecdc4; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('flex3', [{ id: 'jscss-2', expected: { width: 300 } }])">Run Test</button>
+      <div class="result" id="result-flex3"></div>
+    </div>
+  </div>
+
+  <div id="tab-grid" class="tab-content">
+    <div class="test-section">
+      <h2>Grid Test: Basic</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-grid1"><div id="grid" style="display:grid;grid-template-columns:1fr 1fr;">
+  <div id="item1"></div>
+  <div id="item2"></div>
+  <div id="item3"></div>
+  <div id="item4"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-grid1">#grid { width: 400px; }
+#grid > div { height: 60px; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('grid1', [{ id: 'jscss-1', expected: { x: 0, y: 0 } }, { id: 'jscss-2', expected: { x: 200, y: 0 } }])">Run Test</button>
+      <div class="result" id="result-grid1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Grid Test: Fixed Columns</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-grid2"><div id="grid" style="display:grid;grid-template-columns:100px 1fr;">
+  <div id="sidebar"></div>
+  <div id="content"></div>
+</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-grid2">#grid { width: 400px; }
+#sidebar, #content { height: 200px; }
+#sidebar { background: #ff6b6b; }
+#content { background: #4ecdc4; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('grid2', [{ id: 'jscss-1', expected: { width: 100 } }, { id: 'jscss-2', expected: { width: 300 } }])">Run Test</button>
+      <div class="result" id="result-grid2"></div>
+    </div>
+  </div>
+
+  <div id="tab-table" class="tab-content">
+    <div class="test-section">
+      <h2>Table Test: Basic</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-table1"><table id="tbl">
+  <tr><td id="cell1">Cell 1</td><td id="cell2">Cell 2</td></tr>
+</table></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-table1">#tbl { width: 400px; border-collapse: separate; }
+td { padding: 10px; border: 1px solid #ccc; }
+#cell1 { background: #ff6b6b; }
+#cell2 { background: #4ecdc4; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('table1', [{ id: 'jscss-2', expected: { width: { value: 200, tolerance: 20 } } }])">Run Test</button>
+      <div class="result" id="result-table1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Table Test: With thead/tbody/tfoot</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-table2"><table id="tbl">
+  <thead><tr><th id="header">Header</th></tr></thead>
+  <tbody><tr><td id="body">Body Content</td></tr></tbody>
+  <tfoot><tr><td id="footer">Footer</td></tr></tfoot>
+</table></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-table2">#tbl { width: 300px; }
+th, td { padding: 8px; }
+#header { background: #333; color: white; }
+#body { background: #fff; }
+#footer { background: #eee; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('table2', [{ id: 'jscss-4', expected: { width: { value: 300, tolerance: 10 } } }])">Run Test</button>
+      <div class="result" id="result-table2"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Table Test: Colspan</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-table3"><table id="tbl">
+  <tr><td id="wide" colspan="2">Wide Cell</td></tr>
+  <tr><td id="a">A</td><td id="b">B</td></tr>
+</table></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-table3">#tbl { width: 400px; }
+td { padding: 10px; }
+#wide { background: #ff6b6b; }
+#a, #b { background: #4ecdc4; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('table3', [{ id: 'jscss-2', expected: { width: { value: 400, tolerance: 20 } } }])">Run Test</button>
+      <div class="result" id="result-table3"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Table Test: Caption</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-table4"><table id="tbl">
+  <caption id="cap">Table Title</caption>
+  <tr><td id="data">Data</td></tr>
+</table></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-table4">#tbl { width: 250px; caption-side: top; }
+caption { background: #ffe66d; padding: 5px; }
+td { padding: 10px; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('table4', [{ id: 'jscss-1', expected: { width: { value: 250, tolerance: 10 } } }])">Run Test</button>
+      <div class="result" id="result-table4"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Table Test: Vertical Align</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-table5"><table id="tbl">
+  <tr><td id="cell" style="height:80px;vertical-align:bottom;">Bottom</td></tr>
+</table></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-table5">#tbl { width: 200px; }
+td { height: 80px; background: #9b59b6; color: white; padding: 10px; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('table5', [{ id: 'jscss-2', expected: (l) => l.height >= 80 }])">Run Test</button>
+      <div class="result" id="result-table5"></div>
+    </div>
+  </div>
+
+  <div id="tab-text" class="tab-content">
+    <div class="test-section">
+      <h2>Text Test: Font Size</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-text1"><div id="text">Hello World</div></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-text1">#text {
+  font-size: 24px;
+  line-height: 1.5;
+}</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('text1', { id: 'jscss-0', expected: { height: 36 } })">Run Test</button>
+      <div class="result" id="result-text1"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>Text Test: Width from text</h2>
+      <div class="test-input">
+        <div>
+          <strong>HTML:</strong>
+          <textarea id="html-text2"><span id="text">Short</span></textarea>
+        </div>
+        <div>
+          <strong>CSS:</strong>
+          <textarea id="css-text2">#text { font-size: 16px; }</textarea>
+        </div>
+      </div>
+      <button onclick="runTest('text2', { id: 'jscss-0', expected: { width: 96 } })">Run Test</button>
+      <div class="result" id="result-text2"></div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    async function runTest(testId, expected) {
+      const html = document.getElementById('html-' + testId).value;
+      const css = document.getElementById('css-' + testId).value;
+      const resultDiv = document.getElementById('result-' + testId);
+
+      try {
+        const response = await fetch('/api/compute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ html, css })
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          resultDiv.innerHTML = `<span class="fail">Error: ${data.error}</span>`;
+          return;
+        }
+
+        let allPassed = true;
+        let details = '';
+        const checks = Array.isArray(expected) ? expected : [expected];
+
+        for (let check of checks) {
+          const node = data.layout.find(n => n.jscssid === check.id);
+          if (!node) {
+            details += `<div class="fail">Node ${check.id} not found</div>`;
+            allPassed = false;
+            continue;
+          }
+
+          const layout = node.jscsslayout;
+          let passed = true;
+          let nodeDetails = '';
+
+          for (let [prop, expVal] of Object.entries(check.expected)) {
+            const actVal = layout[prop];
+            if (typeof expVal === 'function') {
+              if (!expVal(actVal)) {
+                passed = false;
+                nodeDetails += `${prop}: expected ${expVal.toString()}, got ${actVal}; `;
+              }
+            } else {
+              const tolerance = 5;
+              if (Math.abs(actVal - expVal) > tolerance) {
+                passed = false;
+                nodeDetails += `${prop}: expected ~${expVal}, got ${actVal}; `;
+              }
+            }
+          }
+
+          if (passed) {
+            details += `<div class="pass">✅ ${check.id}: ${JSON.stringify(check.expected)}</div>`;
+          } else {
+            details += `<div class="fail">❌ ${check.id}: ${nodeDetails}<br><span class="expected">Actual: {${Object.entries(layout).slice(0,4).map(([k,v]) => k+':'+Math.round(v)).join(', ')}}</span></div>`;
+            allPassed = false;
+          }
+        }
+
+        let preview = '<div class="preview-container">';
+        data.layout.forEach(item => {
+          if (item.jscsslayout.width > 0 && item.jscsslayout.height > 0) {
+            preview += `<div class="layout-box" style="left:${item.jscsslayout.x}px;top:${item.jscsslayout.y}px;width:${item.jscsslayout.width}px;height:${item.jscsslayout.height}px;">${item.jscssid}</div>`;
+          }
+        });
+        preview += '</div>';
+
+        resultDiv.innerHTML = `
+          ${allPassed ? '<span class="pass">✅ All checks passed!</span>' : '<span class="fail">❌ Some checks failed</span>'}
+          ${details}
+          <h3>Visual Preview:</h3>
+          ${preview}
+          <h3>Layout Data:</h3>
+          <div class="layout-data">${JSON.stringify(data.layout, null, 2)}</div>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="fail">Error: ${err.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>

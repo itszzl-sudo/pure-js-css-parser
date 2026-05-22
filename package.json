@@ -1,0 +1,12 @@
+{
+  "name": "jscss",
+  "version": "1.0.0",
+  "description": "Pure JavaScript HTML/CSS parser and layout engine",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["html", "css", "parser", "layout"],
+  "author": "",
+  "license": "MIT"
+}
