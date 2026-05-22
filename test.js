@@ -431,6 +431,68 @@ result = test('Flex Order',
 );
 totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
 
+console.log('\n📦 MIN/MAX DIMENSION TESTS');
+console.log('-'.repeat(30));
+
+result = test('Min-Width Constraint', 
+  '<div id="box"></div>',
+  '#box { width: 50px; min-width: 100px; height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 100, height: 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Max-Width Constraint', 
+  '<div id="box"></div>',
+  '#box { width: 300px; max-width: 200px; height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w <= 200, height: 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Min-Height Constraint', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 50px; min-height: 80px; }',
+  [{ id: 'jscss-1', expected: { width: 100, height: (h) => h >= 80 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Max-Height Constraint', 
+  '<div id="box"></div>',
+  '#box { width: 100px; height: 200px; max-height: 100px; }',
+  [{ id: 'jscss-1', expected: { width: 100, height: (h) => h <= 100 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Both Min and Max Constraints', 
+  '<div id="box"></div>',
+  '#box { width: 300px; min-width: 100px; max-width: 200px; height: 100px; }',
+  [{ id: 'jscss-1', expected: { width: (w) => w >= 100 && w <= 200, height: 100 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+console.log('\n📍 POSITIONING TESTS');
+console.log('-'.repeat(30));
+
+result = test('Inset Shorthand - Single Value', 
+  '<div id="container" style="position: relative; width: 200px; height: 200px;"><div id="box">Box</div></div>',
+  '#box { position: absolute; inset: 20px; width: 50px; height: 50px; }',
+  [{ id: 'jscss-2', expected: { x: (x) => x >= 20, y: (y) => y >= 20 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Inset Shorthand - Two Values', 
+  '<div id="container" style="position: relative; width: 200px; height: 200px;"><div id="box">Box</div></div>',
+  '#box { position: absolute; inset: 10px 30px; width: 50px; height: 50px; }',
+  [{ id: 'jscss-2', expected: { x: (x) => x >= 25, y: (y) => y >= 8 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
+result = test('Individual Properties Override Inset', 
+  '<div id="container" style="position: relative; width: 200px; height: 200px;"><div id="box">Box</div></div>',
+  '#box { position: absolute; inset: 50px; left: 10px; width: 50px; height: 50px; }',
+  [{ id: 'jscss-2', expected: { x: (x) => x >= 8 && x <= 20 } }]
+);
+totalPassed += result.passed; totalFailed += result.failed; totalTests += result.total;
+
 console.log('\n' + '='.repeat(50));
 console.log(`📊 Results: ${totalPassed}/${totalTests} tests passed`);
 if (totalFailed > 0) {

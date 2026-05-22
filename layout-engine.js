@@ -323,14 +323,43 @@ class LayoutEngine {
     }
 
     let relX = 0, relY = 0;
-    if (style.position === 'relative' || style.position === 'sticky') {
-      relX = this.parseLength(style.left, maxWidth) || 0;
-      relY = this.parseLength(style.top, maxHeight) || 0;
+    
+    // Support inset shorthand property
+    let top, right, bottom, left;
+    
+    if (style.inset && style.inset !== 'auto') {
+      const insetParts = style.inset.split(/\s+/);
+      if (insetParts.length === 1) {
+        top = right = bottom = left = this.parseLength(insetParts[0], maxWidth);
+      } else if (insetParts.length === 2) {
+        top = bottom = this.parseLength(insetParts[0], maxHeight);
+        right = left = this.parseLength(insetParts[1], maxWidth);
+      } else if (insetParts.length === 3) {
+        top = this.parseLength(insetParts[0], maxHeight);
+        right = left = this.parseLength(insetParts[1], maxWidth);
+        bottom = this.parseLength(insetParts[2], maxHeight);
+      } else {
+        top = this.parseLength(insetParts[0], maxHeight);
+        right = this.parseLength(insetParts[1], maxWidth);
+        bottom = this.parseLength(insetParts[2], maxHeight);
+        left = this.parseLength(insetParts[3], maxWidth);
+      }
+    }
+    
+    // Apply individual properties with priority
+    if (style.top !== 'auto') top = this.parseLength(style.top, maxHeight);
+    if (style.right !== 'auto') right = this.parseLength(style.right, maxWidth);
+    if (style.bottom !== 'auto') bottom = this.parseLength(style.bottom, maxHeight);
+    if (style.left !== 'auto') left = this.parseLength(style.left, maxWidth);
+    
+    if (style.position === 'relative' || style.position === 'sticky' || style.position === 'absolute' || style.position === 'fixed') {
+      if (typeof left === 'number') relX = left;
+      if (typeof top === 'number') relY = top;
     }
 
     if (style.position === 'sticky') {
-      if (style.top !== 'auto') {
-        relY = Math.max(relY, this.parseLength(style.top, maxHeight) || 0);
+      if (typeof top === 'number') {
+        relY = Math.max(relY, top);
       }
     }
 
@@ -1027,39 +1056,54 @@ class LayoutEngine {
     const paddingLeft = padding?.left || 0;
     const paddingRight = padding?.right || 0;
 
+    let result = 100;
+
     if (style.display === 'inline' || style.display === 'inline-block') {
       if (style.width === 'auto' || !style.width) {
         if (node.type === 'text') {
           const metrics = this.measureText(node.content, style);
-          return Math.max(0, metrics.width);
+          result = Math.max(0, metrics.width);
+        } else {
+          result = 50;
         }
-        return 50;
+      } else {
+        const parsed = this.parseLength(style.width, maxWidth);
+        if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
+          result = Math.max(0, parsed);
+        }
       }
-      const parsed = this.parseLength(style.width, maxWidth);
-      if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
-        return Math.max(0, parsed);
-      }
-    }
-    if (style.display === 'flex' || style.display === 'grid') {
+    } else if (style.display === 'flex' || style.display === 'grid') {
       if (style.width === 'auto' || !style.width) {
-        return Math.max(0, maxWidth);
+        result = Math.max(0, maxWidth);
+      } else {
+        const parsed = this.parseLength(style.width, maxWidth);
+        if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
+          result = Math.max(0, parsed);
+        }
       }
+    } else if (style.width !== 'auto' && style.width) {
       const parsed = this.parseLength(style.width, maxWidth);
       if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
-        return Math.max(0, parsed);
+        result = Math.max(0, parsed);
       }
+    } else if (style.display === 'block') {
+      result = maxWidth - marginLeft - marginRight - borderLeft - borderRight - paddingLeft - paddingRight;
+      result = Math.max(0, result);
     }
-    if (style.width !== 'auto' && style.width) {
-      const parsed = this.parseLength(style.width, maxWidth);
-      if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
-        return Math.max(0, parsed);
-      }
+
+    // Apply min-width and max-width constraints
+    const minWidth = this.parseLength(style.minWidth, maxWidth);
+    const maxWidthParsed = this.parseLength(style.maxWidth, maxWidth);
+    
+    if (typeof minWidth === 'number' && !isNaN(minWidth) && isFinite(minWidth)) {
+      result = Math.max(result, minWidth);
     }
-    if (style.display === 'block') {
-      const result = maxWidth - marginLeft - marginRight - borderLeft - borderRight - paddingLeft - paddingRight;
-      return Math.max(0, result);
+    
+    if (typeof maxWidthParsed === 'number' && !isNaN(maxWidthParsed) && isFinite(maxWidthParsed)) {
+      result = Math.min(result, maxWidthParsed);
     }
-    return 100;
+
+    return Math.max(0, result);
   }
 
   resolveHeight(node, maxHeight, margin, padding, border) {
@@ -1071,29 +1115,43 @@ class LayoutEngine {
     const paddingTop = padding?.top || 0;
     const paddingBottom = padding?.bottom || 0;
 
+    let result = 50;
+
     if (style.display === 'inline' || style.display === 'inline-block') {
       if (style.height === 'auto' || !style.height) {
         const fontSize = this.parseLength(style.fontSize, 100) || this.fontSize;
         const lineHeight = this.parseLength(style.lineHeight, 100) || fontSize * 1.2;
-        return Math.max(0, lineHeight);
+        result = Math.max(0, lineHeight);
+      } else {
+        const parsed = this.parseLength(style.height, maxHeight);
+        if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
+          result = Math.max(0, parsed);
+        }
       }
+    } else if (style.height !== 'auto' && style.height) {
       const parsed = this.parseLength(style.height, maxHeight);
       if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
-        return Math.max(0, parsed);
+        result = Math.max(0, parsed);
       }
-    }
-    if (style.height !== 'auto' && style.height) {
-      const parsed = this.parseLength(style.height, maxHeight);
-      if (typeof parsed === 'number' && !isNaN(parsed) && isFinite(parsed)) {
-        return Math.max(0, parsed);
-      }
-    }
-    if (style.display === 'block') {
+    } else if (style.display === 'block') {
       const fontSize = this.parseLength(style.fontSize, 100) || this.fontSize;
       const lineHeight = this.parseLength(style.lineHeight, 100) || fontSize * 1.2;
-      return Math.max(0, lineHeight);
+      result = Math.max(0, lineHeight);
     }
-    return 50;
+
+    // Apply min-height and max-height constraints
+    const minHeight = this.parseLength(style.minHeight, maxHeight);
+    const maxHeightParsed = this.parseLength(style.maxHeight, maxHeight);
+    
+    if (typeof minHeight === 'number' && !isNaN(minHeight) && isFinite(minHeight)) {
+      result = Math.max(result, minHeight);
+    }
+    
+    if (typeof maxHeightParsed === 'number' && !isNaN(maxHeightParsed) && isFinite(maxHeightParsed)) {
+      result = Math.min(result, maxHeightParsed);
+    }
+
+    return Math.max(0, result);
   }
 
   parseBoxShorthand(style, type = 'margin') {
