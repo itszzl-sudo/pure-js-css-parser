@@ -990,18 +990,44 @@ class LayoutEngine {
 
         let newX = cbLayout.x;
         let newY = cbLayout.y;
+        let top, right, bottom, left;
 
-        if (style.left !== 'auto') {
-          newX += this.parseLength(style.left, cbLayout.width);
+        // Support inset shorthand property
+        if (style.inset && style.inset !== 'auto') {
+          const insetParts = style.inset.split(/\s+/);
+          if (insetParts.length === 1) {
+            top = right = bottom = left = this.parseLength(insetParts[0], cbLayout.width);
+          } else if (insetParts.length === 2) {
+            top = bottom = this.parseLength(insetParts[0], cbLayout.height);
+            right = left = this.parseLength(insetParts[1], cbLayout.width);
+          } else if (insetParts.length === 3) {
+            top = this.parseLength(insetParts[0], cbLayout.height);
+            right = left = this.parseLength(insetParts[1], cbLayout.width);
+            bottom = this.parseLength(insetParts[2], cbLayout.height);
+          } else {
+            top = this.parseLength(insetParts[0], cbLayout.height);
+            right = this.parseLength(insetParts[1], cbLayout.width);
+            bottom = this.parseLength(insetParts[2], cbLayout.height);
+            left = this.parseLength(insetParts[3], cbLayout.width);
+          }
         }
-        if (style.right !== 'auto' && style.left === 'auto') {
-          newX = cbLayout.x + cbLayout.width - layout._outerWidth - this.parseLength(style.right, cbLayout.width);
+
+        // Apply individual properties with priority
+        if (style.top !== 'auto') top = this.parseLength(style.top, cbLayout.height);
+        if (style.right !== 'auto') right = this.parseLength(style.right, cbLayout.width);
+        if (style.bottom !== 'auto') bottom = this.parseLength(style.bottom, cbLayout.height);
+        if (style.left !== 'auto') left = this.parseLength(style.left, cbLayout.width);
+
+        if (typeof left === 'number') {
+          newX += left;
+        } else if (typeof right === 'number') {
+          newX = cbLayout.x + cbLayout.width - layout._outerWidth - right;
         }
-        if (style.top !== 'auto') {
-          newY += this.parseLength(style.top, cbLayout.height);
-        }
-        if (style.bottom !== 'auto' && style.top === 'auto') {
-          newY = cbLayout.y + cbLayout.height - layout._outerHeight - this.parseLength(style.bottom, cbLayout.height);
+
+        if (typeof top === 'number') {
+          newY += top;
+        } else if (typeof bottom === 'number') {
+          newY = cbLayout.y + cbLayout.height - layout._outerHeight - bottom;
         }
 
         node.jscsslayout.x = newX;
