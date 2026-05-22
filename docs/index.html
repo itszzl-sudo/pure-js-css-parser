@@ -8,6 +8,24 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
+    .nav-links {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+      margin-right: 20px;
+      font-size: 16px;
+      padding: 8px 15px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 5px;
+    }
+    .nav-links a:hover {
+      background: rgba(255,255,255,0.4);
+    }
     .container {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -38,6 +56,13 @@
   </style>
 </head>
 <body>
+  <div class="nav-links">
+    <a href="index.html">🏠 首页</a>
+    <a href="test.html">🧪 测试</a>
+    <a href="auto-test.html">🤖 自动测试</a>
+    <a href="cool-effects.html">✨ 酷炫效果</a>
+    <a href="canvas-demo.html">🎨 Canvas 渲染</a>
+  </div>
   <h1>JSCSS Layout Tool</h1>
   <div class="container">
     <div>

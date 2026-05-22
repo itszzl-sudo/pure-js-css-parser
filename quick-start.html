@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSCSS Project - Quick Start</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .links-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .link-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: block;
+        }
+        
+        .link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+        }
+        
+        .link-card .icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .link-card .title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .link-card .desc {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .info-section {
+            background: #f0f7ff;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .info-section ul {
+            color: #555;
+            padding-left: 20px;
+        }
+        
+        .info-section li {
+            margin: 10px 0;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #38ef7d;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .status.completed {
+            background: #38ef7d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 JSCSS Project</h1>
+        <p class="subtitle">Pure JavaScript CSS Parser & Layout Engine</p>
+        
+        <div class="links-section">
+            <a href="public/index.html" class="link-card">
+                <span class="icon">🏠</span>
+                <div class="title">Homepage</div>
+                <div class="desc">Main project homepage</div>
+            </a>
+            
+            <a href="cool-effects.html" class="link-card">
+                <span class="icon">✨</span>
+                <div class="title">Cool Effects</div>
+                <div class="desc">Amazing CSS effects</div>
+            </a>
+            
+            <a href="canvas-demo.html" class="link-card">
+                <span class="icon">🎨</span>
+                <div class="title">Canvas Demo</div>
+                <div class="desc">Canvas rendering demo</div>
+            </a>
+            
+            <a href="public/test.html" class="link-card">
+                <span class="icon">🧪</span>
+                <div class="title">Test Page</div>
+                <div class="desc">Interactive test page</div>
+            </a>
+        </div>
+        
+        <div class="info-section">
+            <h2>✅ Project Completed!</h2>
+            <ul>
+                <li><strong><span class="status">HTML Parser</span> - Parse HTML into DOM tree</li>
+                <li><strong><span class="status">CSS Parser</span> - Parse CSS styles</li>
+                <li><strong><span class="status">Layout Engine</span> - Calculate element positions</li>
+                <li><strong><span class="status">Decorator Module</span> - Parse CSS decorations</li>
+                <li><strong><span class="status">Canvas Renderer</span> - Render to Canvas</li>
+            </ul>
+            <h2 style="margin-top: 20px;">⚡ To run a server:</h2>
+            <ul>
+                <li><strong>Option 1:</strong> Double click <code>start-server.bat</code></li>
+                <li><strong>Option 2:</strong> Run <code>node simple-server.js</code></li>
+                <li><strong>Option 3:</strong> Run <code>python server.py</code></li>
+                <li><strong>Option 4:</strong> Run <code>python3 -m http.server 8080 --directory public</code></li>
+            </ul>
+        </div>
+        <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #666;">Just click any link above to get started! 🚀</p>
+        </div>
+    </div>
+</body>
+</html>

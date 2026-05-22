@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSCSS Canvas 渲染演示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 80px 20px 20px 20px;
+    }
+    .nav-links {
+      background: linear-gradient(135deg, #1a1423 0%, #2d1b4e 100%);
+      padding: 15px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+      margin-right: 20px;
+      font-size: 16px;
+      padding: 8px 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+    }
+    .nav-links a:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .demo-section {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .code-panel {
+      flex: 1;
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 15px;
+      color: #d4d4d4;
+      font-family: 'Courier New', monospace;
+    }
+    .code-panel h3 {
+      color: #64ffda;
+      margin-top: 0;
+    }
+    .code-panel textarea {
+      width: 100%;
+      height: 200px;
+      background: #2d2d2d;
+      border: 1px solid #444;
+      border-radius: 5px;
+      color: #d4d4d4;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .canvas-panel {
+      flex: 1;
+      text-align: center;
+    }
+    .canvas-panel h3 {
+      color: #333;
+      margin-top: 0;
+    }
+    canvas {
+      border: 2px solid #333;
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .button-group {
+      text-align: center;
+      margin: 20px 0;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      border-radius: 25px;
+      cursor: pointer;
+      margin: 0 10px;
+      box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+    }
+    .preset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .preset-buttons button {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      font-size: 14px;
+      padding: 10px 20px;
+    }
+    .info {
+      background: #f0f7ff;
+      padding: 15px;
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav-links">
+    <a href="/">🏠 首页</a>
+    <a href="/test.html">🧪 测试</a>
+    <a href="/auto-test.html">🤖 自动测试</a>
+    <a href="/cool-effects.html">✨ 酷炫效果</a>
+    <a href="/canvas-demo.html">🎨 Canvas 渲染</a>
+  </div>
+
+  <div class="container">
+    <h1>🎨 JSCSS Canvas 渲染演示</h1>
+    
+    <div class="demo-section">
+      <div class="code-panel">
+        <h3>📄 HTML</h3>
+        <textarea id="htmlInput">
+<div id="container">
+  <div id="box1">Box 1</div>
+  <div id="box2">Box 2</div>
+  <div id="box3">Box 3</div>
+</div>
+        </textarea>
+        
+        <h3 style="margin-top: 20px;">🎨 CSS</h3>
+        <textarea id="cssInput">
+#container {
+  width: 750px;
+  height: 500px;
+  background: #f5f7fa;
+  padding: 20px;
+}
+
+#box1, #box2, #box3 {
+  display: inline-block;
+  width: 200px;
+  height: 150px;
+  border-radius: 10px;
+  margin: 10px;
+  padding: 20px;
+}
+
+#box1 {
+  background: #ff6b6b;
+}
+
+#box2 {
+  background: #4ecdc4;
+}
+
+#box3 {
+  background: #45b7d1;
+}
+        </textarea>
+      </div>
+      
+      <div class="canvas-panel">
+        <h3>🖼️ 渲染结果</h3>
+        <canvas id="renderCanvas" width="800" height="600"></canvas>
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <button onclick="render()">🚀 渲染</button>
+      <button onclick="clearCanvas()">🗑️ 清空</button>
+    </div>
+    
+    <div class="preset-buttons">
+      <button onclick="loadPreset('simple')">简单示例</button>
+      <button onclick="loadPreset('buttons')">按钮样式</button>
+      <button onclick="loadPreset('cards')">卡片布局</button>
+      <button onclick="loadPreset('gradient')">渐变背景</button>
+      <button onclick="loadPreset('cooleffects')" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">✨ Cool Effects</button>
+    </div>
+    
+    <div class="info">
+      <strong>💡 说明：</strong>
+      <ul>
+        <li>左侧输入 HTML 和 CSS，点击"渲染"查看 Canvas 输出</li>
+        <li>支持基本的颜色、边框、阴影、圆角等装饰效果</li>
+        <li>使用我们自己的 JSCSS 引擎解析和布局</li>
+        <li>支持点击预设按钮加载示例内容</li>
+        <li>Cool Effects 按钮可渲染酷炫效果！</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 预设示例
+    const presets = {
+      simple: {
+        html: `<div id="container">
+  <div id="box1">Box 1</div>
+  <div id="box2">Box 2</div>
+  <div id="box3">Box 3</div>
+</div>`,
+        css: `#container {
+  width: 750px;
+  height: 500px;
+  background: #f5f7fa;
+  padding: 20px;
+}
+
+#box1, #box2, #box3 {
+  display: inline-block;
+  width: 200px;
+  height: 150px;
+  border-radius: 10px;
+  margin: 10px;
+  padding: 20px;
+  vertical-align: top;
+}
+
+#box1 {
+  background: #ff6b6b;
+}
+
+#box2 {
+  background: #4ecdc4;
+}
+
+#box3 {
+  background: #45b7d1;
+}`
+      },
+      buttons: {
+        html: `<div id="container">
+  <button class="primary">Primary</button>
+  <button class="success">Success</button>
+  <button class="danger">Danger</button>
+  <button class="warning">Warning</button>
+</div>`,
+        css: `#container {
+  width: 750px;
+  height: 500px;
+  background: #ffffff;
+  padding: 20px;
+}
+
+button {
+  padding: 15px 30px;
+  margin: 15px;
+  border: none;
+  border-radius: 25px;
+  color: white;
+  font-weight: bold;
+  display: inline-block;
+}
+
+.primary {
+  background: #667eea;
+  box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+}
+
+.success {
+  background: #38ef7d;
+  box-shadow: 0 4px 15px rgba(56,239,125,0.4);
+}
+
+.danger {
+  background: #eb3b5a;
+  box-shadow: 0 4px 15px rgba(235,59,90,0.4);
+}
+
+.warning {
+  background: #fa8231;
+  box-shadow: 0 4px 15px rgba(250,130,49,0.4);
+}`
+      },
+      cards: {
+        html: `<div id="container">
+  <div class="card">
+    <div class="avatar">👤</div>
+    <h3>John Doe</h3>
+    <p>Developer</p>
+  </div>
+  <div class="card">
+    <div class="avatar">👩</div>
+    <h3>Jane Smith</h3>
+    <p>Designer</p>
+  </div>
+  <div class="card">
+    <div class="avatar">🧑</div>
+    <h3>Alex Chen</h3>
+    <p>Manager</p>
+  </div>
+</div>`,
+        css: `#container {
+  width: 750px;
+  height: 500px;
+  background: #f0f4f8;
+  padding: 20px;
+}
+
+.card {
+  width: 200px;
+  height: 280px;
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  margin: 15px;
+  display: inline-block;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  vertical-align: top;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  font-size: 40px;
+  line-height: 80px;
+}
+
+h3 {
+  color: #333;
+  margin: 0 0 10px;
+}
+
+p {
+  color: #888;
+  margin: 0;
+}`
+      },
+      gradient: {
+        html: `<div id="container">
+  <div class="gradient1"></div>
+  <div class="gradient2"></div>
+  <div class="gradient3"></div>
+  <div class="gradient4"></div>
+</div>`,
+        css: `#container {
+  width: 750px;
+  height: 500px;
+  background: #1a1a2e;
+  padding: 20px;
+}
+
+.gradient1, .gradient2, .gradient3, .gradient4 {
+  width: 170px;
+  height: 170px;
+  display: inline-block;
+  margin: 15px;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+  vertical-align: top;
+}
+
+.gradient1 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient2 {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.gradient3 {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.gradient4 {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}`
+      },
+      cooleffects: {
+        html: `<div id="scene">
+  <div id="bg"></div>
+  <div id="sphere"></div>
+  <div class="ring ring1"></div>
+  <div class="ring ring2"></div>
+  <div class="gem gem1"></div>
+  <div class="gem gem2"></div>
+  <div class="gem gem3"></div>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="hex hex1"></div>
+  <div class="hex hex2"></div>
+</div>`,
+        css: `#scene {
+  width: 800px;
+  height: 600px;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1423 50%, #2d1b4e 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+#bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+#sphere {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 30% 30%, #ff6ec7, #7c3aed, #3b82f6);
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 60px rgba(124, 58, 237, 0.6), 0 0 120px rgba(59, 130, 246, 0.4);
+}
+
+.ring {
+  position: absolute;
+  border: 3px solid;
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+}
+
+.ring1 {
+  width: 200px;
+  height: 200px;
+  border-color: rgba(255, 110, 199, 0.6);
+  transform: translate(-50%, -50%);
+}
+
+.ring2 {
+  width: 280px;
+  height: 280px;
+  border-color: rgba(124, 58, 237, 0.5);
+  transform: translate(-50%, -50%);
+}
+
+.gem {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  background: linear-gradient(135deg, #fff 0%, #64ffda 50%, #3b82f6 100%);
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  box-shadow: 0 0 20px rgba(100, 255, 218, 0.8);
+}
+
+.gem1 {
+  left: 50%;
+  top: 50%;
+}
+
+.gem2 {
+  left: 50%;
+  top: 50%;
+}
+
+.gem3 {
+  left: 50%;
+  top: 50%;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+}
+
+.orb1 {
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(255, 110, 199, 0.6), transparent);
+  top: 20%;
+  left: 20%;
+}
+
+.orb2 {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.6), transparent);
+  bottom: 25%;
+  right: 15%;
+}
+
+.hex {
+  position: absolute;
+  width: 50px;
+  height: 30px;
+  background: linear-gradient(135deg, rgba(255, 110, 199, 0.3), rgba(124, 58, 237, 0.3));
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  border: 2px solid rgba(100, 255, 218, 0.5);
+}
+
+.hex1 {
+  top: 15%;
+  left: 10%;
+}
+
+.hex2 {
+  bottom: 20%;
+  right: 10%;
+}`
+      }
+    };
+
+    // 简化的 JSCSS 模拟渲染器
+    function render() {
+      const canvas = document.getElementById('renderCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      // 清空画布
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const html = document.getElementById('htmlInput').value;
+      const css = document.getElementById('cssInput').value;
+      
+      // 简单的CSS解析和渲染
+      renderSimple(ctx, html, css);
+    }
+
+    function renderSimple(ctx, html, css) {
+      const canvasWidth = 800;
+      const canvasHeight = 600;
+      
+      // 解析CSS
+      const styles = parseCSSSimple(css);
+      
+      // 解析HTML并获取容器信息
+      const containerStyle = styles['#container'] || styles['#scene'] || {};
+      
+      // 绘制背景
+      if (containerStyle.background) {
+        ctx.fillStyle = containerStyle.background;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      } else if (containerStyle['background-color']) {
+        ctx.fillStyle = containerStyle['background-color'];
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
+      
+      // 绘制简单元素
+      if (html.includes('box1') || html.includes('box2') || html.includes('box3')) {
+        drawSimpleBoxes(ctx, styles);
+      }
+      
+      if (html.includes('button')) {
+        drawButtons(ctx, styles);
+      }
+      
+      if (html.includes('card')) {
+        drawCards(ctx, styles);
+      }
+      
+      if (html.includes('gradient')) {
+        drawGradients(ctx, styles);
+      }
+      
+      if (html.includes('scene') || html.includes('sphere')) {
+        drawCoolEffects(ctx, styles);
+      }
+    }
+
+    function drawSimpleBoxes(ctx, styles) {
+      const boxStyles = [
+        styles['#box1'],
+        styles['#box2'],
+        styles['#box3']
+      ];
+      
+      const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1'];
+      const texts = ['Box 1', 'Box 2', 'Box 3'];
+      
+      let x = 30;
+      let y = 200;
+      
+      boxStyles.forEach((style, i) => {
+        if (style) {
+          const width = parseInt(style.width) || 200;
+          const height = parseInt(style.height) || 150;
+          const bg = style.background || colors[i];
+          const radius = parseInt(style['border-radius']) || 0;
+          
+          // 绘制阴影
+          ctx.shadowColor = 'rgba(0,0,0,0.2)';
+          ctx.shadowBlur = 15;
+          ctx.shadowOffsetY = 5;
+          
+          // 绘制圆角矩形
+          drawRoundRect(ctx, x, y, width, height, radius);
+          ctx.fillStyle = bg;
+          ctx.fill();
+          
+          ctx.shadowColor = 'transparent';
+          
+          // 绘制文字
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 20px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(texts[i], x + width/2, y + height/2);
+          
+          x += width + 30;
+        }
+      });
+    }
+
+    function drawButtons(ctx, styles) {
+      const buttonStyles = [
+        { class: '.primary', text: 'Primary', color: '#667eea' },
+        { class: '.success', text: 'Success', color: '#38ef7d' },
+        { class: '.danger', text: 'Danger', color: '#eb3b5a' },
+        { class: '.warning', text: 'Warning', color: '#fa8231' }
+      ];
+      
+      let x = 80;
+      let y = 200;
+      
+      buttonStyles.forEach((btn, i) => {
+        const width = 140;
+        const height = 50;
+        
+        // 绘制阴影
+        ctx.shadowColor = btn.color.replace(')', ', 0.4)').replace('rgb', 'rgba');
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetY = 4;
+        
+        // 绘制圆角矩形
+        drawRoundRect(ctx, x, y, width, height, 25);
+        ctx.fillStyle = btn.color;
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+        
+        // 绘制文字
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(btn.text, x + width/2, y + height/2);
+        
+        x += width + 40;
+      });
+    }
+
+    function drawCards(ctx, styles) {
+      const cardStyle = styles['.card'];
+      const avatarStyle = styles['.avatar'];
+      
+      const cardWidth = 200;
+      const cardHeight = 280;
+      let x = 80;
+      const y = 150;
+      
+      for (let i = 0; i < 3; i++) {
+        // 绘制阴影
+        ctx.shadowColor = 'rgba(0,0,0,0.1)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 10;
+        
+        // 绘制卡片
+        drawRoundRect(ctx, x, y, cardWidth, cardHeight, 20);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+        
+        // 绘制头像圆形
+        const avatarX = x + cardWidth/2 - 40;
+        const avatarY = y + 30;
+        ctx.fillStyle = '#667eea';
+        ctx.beginPath();
+        ctx.arc(avatarX + 40, avatarY + 40, 40, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 绘制标题
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(['John Doe', 'Jane Smith', 'Alex Chen'][i], x + cardWidth/2, y + 140);
+        
+        // 绘制描述
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Arial';
+        ctx.fillText(['Developer', 'Designer', 'Manager'][i], x + cardWidth/2, y + 165);
+        
+        x += cardWidth + 30;
+      }
+    }
+
+    function drawGradients(ctx, styles) {
+      const gradientColors = [
+        ['#667eea', '#764ba2'],
+        ['#11998e', '#38ef7d'],
+        ['#f093fb', '#f5576c'],
+        ['#4facfe', '#00f2fe']
+      ];
+      
+      let x = 100;
+      const y = 200;
+      const size = 170;
+      
+      gradientColors.forEach((colors, i) => {
+        // 绘制阴影
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 25;
+        ctx.shadowOffsetY = 8;
+        
+        // 创建渐变
+        const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
+        gradient.addColorStop(0, colors[0]);
+        gradient.addColorStop(1, colors[1]);
+        
+        // 绘制圆角矩形
+        drawRoundRect(ctx, x, y, size, size, 20);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+        
+        x += size + 50;
+      });
+    }
+
+    function drawCoolEffects(ctx, styles) {
+      const canvasWidth = 800;
+      const canvasHeight = 600;
+      
+      // 绘制背景
+      const bgGradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+      bgGradient.addColorStop(0, '#0a0e27');
+      bgGradient.addColorStop(0.5, '#1a1423');
+      bgGradient.addColorStop(1, '#2d1b4e');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      
+      // 绘制发光球体
+      const sphereGradient = ctx.createRadialGradient(350, 250, 0, 400, 300, 60);
+      sphereGradient.addColorStop(0, '#ff6ec7');
+      sphereGradient.addColorStop(0.5, '#7c3aed');
+      sphereGradient.addColorStop(1, '#3b82f6');
+      
+      ctx.shadowColor = 'rgba(124, 58, 237, 0.6)';
+      ctx.shadowBlur = 60;
+      
+      ctx.fillStyle = sphereGradient;
+      ctx.beginPath();
+      ctx.arc(400, 300, 60, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.shadowColor = 'transparent';
+      
+      // 绘制光环
+      ctx.strokeStyle = 'rgba(255, 110, 199, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(400, 300, 100, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.strokeStyle = 'rgba(124, 58, 237, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(400, 300, 140, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // 绘制宝石
+      const gemColors = ['#64ffda', '#ff6ec7', '#7c3aed'];
+      const gemPositions = [
+        { x: 400, y: 200, size: 8 },
+        { x: 480, y: 350, size: 10 },
+        { x: 320, y: 380, size: 9 }
+      ];
+      
+      gemPositions.forEach((pos, i) => {
+        ctx.shadowColor = 'rgba(100, 255, 218, 0.8)';
+        ctx.shadowBlur = 20;
+        
+        ctx.fillStyle = gemColors[i];
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y - pos.size);
+        ctx.lineTo(pos.x + pos.size, pos.y - pos.size * 0.4);
+        ctx.lineTo(pos.x + pos.size * 0.8, pos.y + pos.size);
+        ctx.lineTo(pos.x - pos.size * 0.8, pos.y + pos.size);
+        ctx.lineTo(pos.x - pos.size, pos.y - pos.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+      });
+      
+      // 绘制光晕
+      ctx.fillStyle = 'rgba(255, 110, 199, 0.4)';
+      ctx.beginPath();
+      ctx.arc(160, 120, 75, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = 'rgba(124, 58, 237, 0.4)';
+      ctx.beginPath();
+      ctx.arc(620, 450, 60, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 绘制六边形
+      drawHexagon(ctx, 100, 100, 25, 'rgba(255, 110, 199, 0.3)', 'rgba(100, 255, 218, 0.5)');
+      drawHexagon(ctx, 680, 480, 30, 'rgba(124, 58, 237, 0.3)', 'rgba(100, 255, 218, 0.5)');
+    }
+
+    function drawHexagon(ctx, x, y, size, fill, stroke) {
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function parseCSSSimple(css) {
+      const styles = {};
+      const rules = css.split('}').filter(r => r.trim());
+      
+      rules.forEach(rule => {
+        const parts = rule.split('{');
+        if (parts.length === 2) {
+          const selector = parts[0].trim();
+          const properties = parts[1].split(';').filter(p => p.trim());
+          const style = {};
+          
+          properties.forEach(prop => {
+            const [key, value] = prop.split(':').map(s => s.trim());
+            if (key && value) {
+              style[key] = value;
+            }
+          });
+          
+          styles[selector] = style;
+        }
+      });
+      
+      return styles;
+    }
+
+    function drawRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function loadPreset(name) {
+      const preset = presets[name];
+      if (preset) {
+        document.getElementById('htmlInput').value = preset.html;
+        document.getElementById('cssInput').value = preset.css;
+        render();
+      }
+    }
+
+    function clearCanvas() {
+      const canvas = document.getElementById('renderCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 页面加载时自动渲染
+    window.onload = render;
+  </script>
+</body>
+</html>
