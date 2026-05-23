@@ -1,0 +1,62 @@
+[package]
+name = "simple-browser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# WebGPU 渲染引擎 (本地路径依赖)
+webgpu-web-renderer = { path = "E:/Administrator/Documents/comate/webgpu-web-renderer" }
+
+# QuickJS JavaScript 引擎 (基于 QuickJS-NG，预编译集成)
+quickjs-rusty = "0.11"
+
+# 窗口和事件处理
+winit = "0.29"
+
+# WebGPU 渲染表面
+wgpu = "0.20"
+
+# 异步运行时
+pollster = "0.3"
+
+# 日志
+log = "0.4"
+env_logger = "0.10"
+
+# 图片处理
+image = "0.24"
+
+# HTTP 客户端
+ureq = "2.9"
+
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 其他工具
+anyhow = "1.0"
+url = "2.5"
+base64 = "0.22"
+urlencoding = "2.1"
+
+# Cookie / WebStorage 支持
+lazy_static = "1.4"
+httpdate = "1.0"
+
+# GPU 数据转换（push constants）
+bytemuck = "1.14"
+
+# Windows 原生工具栏
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",
+    "Win32_UI_Accessibility",
+    "Win32_Graphics_Gdi",
+] }
+raw-window-handle = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = true
