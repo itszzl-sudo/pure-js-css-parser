@@ -9,7 +9,7 @@ use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
-use crate::dom_api::{DomApiBridge, setup_dom_js_api};
+use crate::dom_api::{DomApiBridge, setup_dom_js_api, update_origin};
 use crate::event_handler::{EventManager, EventType, EventData, MouseEventData};
 use crate::js_engine::JsEngine;
 use crate::network::NetworkManager;
@@ -18,6 +18,12 @@ use crate::tab::Tab;
 use crate::toolbar::{Toolbar, ToolbarAction, TOOLBAR_HEIGHT, TAB_BAR_HEIGHT};
 use webgpu_web_renderer::bridge::WebNativeBridge;
 use webgpu_web_renderer::Engine;
+
+/// 书签结构
+pub struct Bookmark {
+    pub url: String,
+    pub title: String,
+}
 
 /// 简单浏览器主结构
 pub struct SimpleBrowser {
@@ -38,6 +44,8 @@ pub struct SimpleBrowser {
     toolbar: Option<Toolbar>,
     /// 需要重新渲染
     needs_redraw: bool,
+    /// 书签列表
+    pub bookmarks: Vec<Bookmark>,
 }
 
 impl SimpleBrowser {
@@ -119,6 +127,7 @@ impl SimpleBrowser {
             #[cfg(windows)]
             toolbar,
             needs_redraw: true,
+            bookmarks: Vec::new(),
         })
     }
 
@@ -190,6 +199,9 @@ impl SimpleBrowser {
 
         // 更新工具栏标签按钮
         self.update_toolbar_tabs();
+
+        // 更新工具栏按钮状态
+        self.update_toolbar_button_states();
 
         self.needs_redraw = true;
         Ok(())
@@ -265,13 +277,111 @@ impl SimpleBrowser {
         }
     }
 
+    /// 更新工具栏按钮状态（前进/后退/书签）
+    fn update_toolbar_button_states(&mut self) {
+        #[cfg(windows)]
+        {
+            let tab = &self.tabs[self.active_tab_index];
+            let can_go_back = tab.can_go_back();
+            let can_go_forward = tab.can_go_forward();
+            let current_url = tab.current_url.clone();
+            let is_bookmarked = self.is_bookmarked(&current_url);
+
+            if let Some(ref mut toolbar) = self.toolbar {
+                toolbar.set_back_enabled(can_go_back);
+                toolbar.set_forward_enabled(can_go_forward);
+                toolbar.set_bookmarked(is_bookmarked);
+            }
+        }
+    }
+
+    /// 后退导航
+    pub fn go_back(&mut self) -> Result<()> {
+        let tab = &mut self.tabs[self.active_tab_index];
+        if let Some(url) = tab.go_back() {
+            let from_debug = tab.is_debug_tab;
+            self.navigate_internal(&url, from_debug)?;
+        }
+        Ok(())
+    }
+
+    /// 前进导航
+    pub fn go_forward(&mut self) -> Result<()> {
+        let tab = &mut self.tabs[self.active_tab_index];
+        if let Some(url) = tab.go_forward() {
+            let from_debug = tab.is_debug_tab;
+            self.navigate_internal(&url, from_debug)?;
+        }
+        Ok(())
+    }
+
+    /// 检查是否可以后退
+    pub fn can_go_back(&self) -> bool {
+        self.tabs[self.active_tab_index].can_go_back()
+    }
+
+    /// 检查是否可以前进
+    pub fn can_go_forward(&self) -> bool {
+        self.tabs[self.active_tab_index].can_go_forward()
+    }
+
+    /// 检查 URL 是否已收藏
+    pub fn is_bookmarked(&self, url: &str) -> bool {
+        self.bookmarks.iter().any(|b| b.url == url)
+    }
+
+    /// 切换当前页面的书签状态
+    pub fn toggle_bookmark(&mut self) {
+        let url = self.tabs[self.active_tab_index].current_url.clone();
+        let title = self.tabs[self.active_tab_index].page_title.clone();
+
+        if url.is_empty() {
+            return;
+        }
+
+        let is_bookmarked = self.is_bookmarked(&url);
+
+        if is_bookmarked {
+            // 移除书签
+            self.bookmarks.retain(|b| b.url != url);
+            info!("Removed bookmark: {}", url);
+        } else {
+            // 添加书签
+            self.bookmarks.push(Bookmark { url: url.clone(), title: title.clone() });
+            info!("Added bookmark: {} - {}", title, url);
+        }
+
+        // 更新工具栏按钮状态
+        #[cfg(windows)]
+        if let Some(ref mut toolbar) = self.toolbar {
+            toolbar.set_bookmarked(!is_bookmarked);
+        }
+    }
+
+    /// 获取书签列表
+    pub fn get_bookmarks(&self) -> &[Bookmark] {
+        &self.bookmarks
+    }
+
     /// 导航到 URL（在活动标签页中）
     /// from_debug: 是否从调试面板导航
     pub fn navigate(&mut self, url: &str, from_debug: bool) -> Result<()> {
         info!("Navigating to: {} (from_debug: {})", url, from_debug);
 
+        // 保存旧 URL 到历史记录
+        let old_url = self.tabs[self.active_tab_index].current_url.clone();
+        if !old_url.is_empty() {
+            self.tabs[self.active_tab_index].push_history(old_url);
+        }
+
         self.tabs[self.active_tab_index].current_url = url.to_string();
         self.tabs[self.active_tab_index].is_debug_tab = from_debug;
+
+        // 更新 NetworkManager 的当前 URL（用于 Referer 头）
+        self.network.set_current_url(url);
+
+        // 更新当前 origin（用于 cookie/storage 回调）
+        update_origin(url);
 
         // 获取资源
         let resource = self.network.fetch(url)?;
@@ -308,6 +418,69 @@ impl SimpleBrowser {
 
         // 更新标签按钮
         self.update_toolbar_tabs();
+
+        // 更新工具栏按钮状态
+        self.update_toolbar_button_states();
+
+        // 标记需要重绘
+        self.needs_redraw = true;
+        self.page_renderer.request_redraw();
+
+        Ok(())
+    }
+
+    /// 内部导航（不添加到历史记录）
+    /// 用于前进/后退导航
+    fn navigate_internal(&mut self, url: &str, from_debug: bool) -> Result<()> {
+        info!("Internal navigating to: {} (from_debug: {})", url, from_debug);
+
+        self.tabs[self.active_tab_index].current_url = url.to_string();
+        self.tabs[self.active_tab_index].is_debug_tab = from_debug;
+
+        // 更新 NetworkManager 的当前 URL（用于 Referer 头）
+        self.network.set_current_url(url);
+
+        // 更新当前 origin（用于 cookie/storage 回调）
+        update_origin(url);
+
+        // 获取资源
+        let resource = self.network.fetch(url)?;
+
+        // 根据内容类型处理
+        let content_type = resource.content_type();
+
+        if content_type.starts_with("text/html") {
+            let html = resource.text()?;
+            self.load_html(&html)?;
+
+            // 提取页面标题
+            if let Some(title) = extract_page_title(&html) {
+                self.tabs[self.active_tab_index].page_title = title;
+            }
+        } else if content_type.starts_with("text/css") {
+            self.load_css(&resource.text()?)?;
+        } else if content_type.starts_with("application/javascript") {
+            self.load_js(&resource.text()?)?;
+        } else {
+            warn!("Unsupported content type: {}", content_type);
+        }
+
+        // 更新窗口标题
+        let tab = &self.tabs[self.active_tab_index];
+        self.window.set_title(&format!("{} - Simple Browser", tab.page_title));
+
+        // 更新地址栏（简化 URL）和调试面板（完整 URL）
+        #[cfg(windows)]
+        if let Some(ref toolbar) = self.toolbar {
+            toolbar.set_address_text(&simplify_url(url));
+            toolbar.set_debug_text(url);
+        }
+
+        // 更新标签按钮
+        self.update_toolbar_tabs();
+
+        // 更新工具栏按钮状态
+        self.update_toolbar_button_states();
 
         // 标记需要重绘
         self.needs_redraw = true;
@@ -457,17 +630,13 @@ impl SimpleBrowser {
                 }
             }
             ToolbarAction::Back => {
-                info!("Back navigation requested (not yet implemented)");
+                let _ = self.go_back();
             }
             ToolbarAction::Forward => {
-                info!("Forward navigation requested (not yet implemented)");
+                let _ = self.go_forward();
             }
             ToolbarAction::Refresh => {
-                let url = self.tabs[self.active_tab_index].current_url.clone();
-                if !url.is_empty() {
-                    let from_debug = self.tabs[self.active_tab_index].is_debug_tab;
-                    let _ = self.navigate(&url, from_debug);
-                }
+                let _ = self.reload();
             }
             ToolbarAction::NewTab => {
                 let _ = self.new_tab();
@@ -488,6 +657,24 @@ impl SimpleBrowser {
                     // 请求重绘
                     self.needs_redraw = true;
                     self.page_renderer.request_redraw();
+                }
+            }
+            ToolbarAction::ToggleBookmark => {
+                self.toggle_bookmark();
+            }
+            ToolbarAction::OpenBookmark(url) => {
+                if !url.is_empty() {
+                    let _ = self.navigate(&url, false);
+                }
+            }
+            ToolbarAction::ShowBookmarkMenu => {
+                // 显示书签菜单 - 简化实现：直接导航到第一个书签（如果有）
+                // 实际实现可以显示一个弹出菜单
+                if let Some(bookmark) = self.bookmarks.first() {
+                    let url = bookmark.url.clone();
+                    let _ = self.navigate(&url, false);
+                } else {
+                    info!("No bookmarks available");
                 }
             }
         }
@@ -648,8 +835,12 @@ impl SimpleBrowser {
     /// 重新加载当前页面
     pub fn reload(&mut self) -> Result<()> {
         let url = self.tabs[self.active_tab_index].current_url.clone();
-        let from_debug = self.tabs[self.active_tab_index].is_debug_tab;
-        self.navigate(&url, from_debug)
+        if !url.is_empty() {
+            let from_debug = self.tabs[self.active_tab_index].is_debug_tab;
+            // 使用内部导航，不添加重复的历史记录
+            self.navigate_internal(&url, from_debug)?;
+        }
+        Ok(())
     }
 
     /// 执行 JavaScript 代码

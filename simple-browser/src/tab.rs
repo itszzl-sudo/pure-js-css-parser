@@ -28,6 +28,10 @@ pub struct Tab {
     pub needs_redraw: bool,
     /// 是否为调试标签页
     pub is_debug_tab: bool,
+    /// URL 历史栈
+    pub history: Vec<String>,
+    /// 当前在历史栈中的位置
+    pub history_index: usize,
 }
 
 impl Tab {
@@ -47,6 +51,65 @@ impl Tab {
             page_title: String::from("New Tab"),
             needs_redraw: true,
             is_debug_tab: false,
+            history: Vec::new(),
+            history_index: 0,
+        }
+    }
+
+    /// 检查是否可以后退
+    pub fn can_go_back(&self) -> bool {
+        self.history_index > 0 && !self.history.is_empty()
+    }
+
+    /// 检查是否可以前进
+    pub fn can_go_forward(&self) -> bool {
+        self.history_index < self.history.len().saturating_sub(1)
+    }
+
+    /// 后退到上一页，返回上一页的 URL
+    pub fn go_back(&mut self) -> Option<String> {
+        if self.can_go_back() {
+            self.history_index -= 1;
+            self.history.get(self.history_index).cloned()
+        } else {
+            None
+        }
+    }
+
+    /// 前进到下一页，返回下一页的 URL
+    pub fn go_forward(&mut self) -> Option<String> {
+        if self.can_go_forward() {
+            self.history_index += 1;
+            self.history.get(self.history_index).cloned()
+        } else {
+            None
+        }
+    }
+
+    /// 添加新的 URL 到历史记录
+    /// 如果当前不在历史记录末尾，则截断后面的历史
+    pub fn push_history(&mut self, url: String) {
+        // 如果当前 URL 与要添加的 URL 相同，则不添加
+        if let Some(current) = self.history.get(self.history_index) {
+            if current == &url {
+                return;
+            }
+        }
+
+        // 截断当前位置之后的历史
+        if self.history_index < self.history.len() {
+            self.history.truncate(self.history_index + 1);
+        }
+
+        // 添加新 URL
+        self.history.push(url);
+        self.history_index = self.history.len() - 1;
+
+        // 限制历史记录大小（可选，最多保存 50 条）
+        if self.history.len() > 50 {
+            let excess = self.history.len() - 50;
+            self.history.drain(0..excess);
+            self.history_index = self.history_index.saturating_sub(excess);
         }
     }
 

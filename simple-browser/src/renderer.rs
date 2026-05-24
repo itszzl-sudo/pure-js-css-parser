@@ -398,20 +398,16 @@ impl PageRenderer {
 
     /// 渲染页面
     pub fn render(&mut self) -> Result<()> {
-        // 使用 webgpu-web-renderer 渲染页面到纹理
-        let png_bytes = {
+        // 使用 webgpu-web-renderer 的 render_raw() 跳过 PNG 编解码
+        let (rgba_data, img_width, img_height) = {
             let mut engine = self.engine.borrow_mut();
-            engine.render()
+            engine.render_raw().unwrap_or_default()
         };
 
-        if png_bytes.is_empty() {
-            log::warn!("PageRenderer: png_bytes is empty, clearing to white");
+        if rgba_data.is_empty() {
+            log::warn!("PageRenderer: render_raw returned empty, clearing to white");
             return self.renderer.clear(wgpu::Color::WHITE);
         }
-
-        // 解码 PNG 数据
-        let img = image::load_from_memory(&png_bytes)?;
-        let rgba = img.to_rgba8();
 
         // 更新纹理
         let size = self.renderer.size();
@@ -422,7 +418,7 @@ impl PageRenderer {
         };
 
         if let Some(ref texture) = self.texture
-            && rgba.width() == size.width && rgba.height() == content_height {
+            && img_width == size.width && img_height == content_height {
                 self.renderer.queue().write_texture(
                     wgpu::ImageCopyTexture {
                         texture,
@@ -430,7 +426,7 @@ impl PageRenderer {
                         origin: wgpu::Origin3d::ZERO,
                         aspect: wgpu::TextureAspect::All,
                     },
-                    &rgba,
+                    &rgba_data,
                     wgpu::ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(4 * size.width),

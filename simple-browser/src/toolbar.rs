@@ -11,7 +11,7 @@
 use log::info;
 
 #[cfg(windows)]
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM, TRUE};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM, TRUE, FALSE};
 #[cfg(windows)]
 use windows::Win32::Graphics::Gdi::{HFONT, CreateFontW, DeleteObject, DEFAULT_CHARSET};
 #[cfg(windows)]
@@ -28,11 +28,14 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_COMMAND,
     EN_SETFOCUS, EN_KILLFOCUS, BN_CLICKED,
     SW_HIDE, SW_SHOW,
-};
-#[cfg(windows)]
-use windows::Win32::UI::WindowsAndMessaging::{
     WINDOW_STYLE, WINDOW_EX_STYLE,
 };
+
+// EnableWindow 函数声明
+#[cfg(windows)]
+unsafe extern "system" {
+    fn EnableWindow(hwnd: HWND, enable: windows::Win32::Foundation::BOOL) -> windows::Win32::Foundation::BOOL;
+}
 #[cfg(windows)]
 use windows::core::PCWSTR;
 
@@ -54,6 +57,8 @@ pub const NAV_BUTTONS_WIDTH: i32 = (BUTTON_WIDTH + BUTTON_MARGIN) * 3 + BUTTON_M
 pub const NEW_TAB_BUTTON_WIDTH: i32 = 80;
 /// 调试按钮宽度
 pub const DEBUG_BUTTON_WIDTH: i32 = 60;
+/// 书签按钮宽度
+pub const BOOKMARK_BUTTON_WIDTH: i32 = 30;
 
 /// 工具栏结构
 #[cfg(windows)]
@@ -79,6 +84,10 @@ pub struct Toolbar {
     new_tab_button_hwnd: HWND,
     /// 调试切换按钮句柄
     debug_toggle_hwnd: HWND,
+    /// 书签按钮句柄
+    bookmark_button_hwnd: HWND,
+    /// 书签下拉按钮句柄
+    bookmark_dropdown_hwnd: HWND,
     /// 标签按钮句柄列表
     tab_button_hwnds: Vec<HWND>,
     /// 关闭标签页按钮句柄列表
@@ -97,6 +106,10 @@ pub struct Toolbar {
     is_debug_visible: bool,
     /// 当前窗口宽度
     current_width: i32,
+    /// 当前页面是否已收藏
+    is_bookmarked: bool,
+    /// 书签菜单回调
+    bookmark_callback: Option<Box<dyn Fn(&str)>>,
 }
 
 #[cfg(windows)]
@@ -257,15 +270,47 @@ impl Toolbar {
             CreateWindowExW(
                 WINDOW_EX_STYLE(0),
                 WC_BUTTONW,
-                PCWSTR(wide_string("+ New Tab").as_ptr()),
+                PCWSTR(wide_string("+").as_ptr()),
                 btn_style,
                 0, 2,
-                NEW_TAB_BUTTON_WIDTH, (TAB_BAR_HEIGHT - 4) as i32,
+                28, (TAB_BAR_HEIGHT - 4) as i32,
                 toolbar_hwnd,
                 None,
                 windows::Win32::Foundation::HINSTANCE::default(),
                 None,
             ).map_err(|e| format!("Failed to create New Tab button: {}", e))?
+        };
+
+        // 创建书签按钮（星形）
+        let bookmark_button_hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                WC_BUTTONW,
+                PCWSTR(wide_string("☆").as_ptr()),
+                btn_style,
+                0, TAB_BAR_HEIGHT as i32 + 8,
+                BOOKMARK_BUTTON_WIDTH, BUTTON_HEIGHT,
+                toolbar_hwnd,
+                None,
+                windows::Win32::Foundation::HINSTANCE::default(),
+                None,
+            ).map_err(|e| format!("Failed to create Bookmark button: {}", e))?
+        };
+
+        // 创建书签下拉按钮
+        let bookmark_dropdown_hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                WC_BUTTONW,
+                PCWSTR(wide_string("▼").as_ptr()),
+                btn_style,
+                0, TAB_BAR_HEIGHT as i32 + 8,
+                24, BUTTON_HEIGHT,
+                toolbar_hwnd,
+                None,
+                windows::Win32::Foundation::HINSTANCE::default(),
+                None,
+            ).map_err(|e| format!("Failed to create Bookmark dropdown button: {}", e))?
         };
 
         // 设置字体
@@ -278,6 +323,14 @@ impl Toolbar {
             let _ = SendMessageW(refresh_button_hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(TRUE.0 as isize));
             let _ = SendMessageW(debug_toggle_hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(TRUE.0 as isize));
             let _ = SendMessageW(new_tab_button_hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(TRUE.0 as isize));
+            let _ = SendMessageW(bookmark_button_hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(TRUE.0 as isize));
+            let _ = SendMessageW(bookmark_dropdown_hwnd, WM_SETFONT, WPARAM(font.0 as usize), LPARAM(TRUE.0 as isize));
+        }
+
+        // 初始禁用后退和前进按钮
+        unsafe {
+            let _ = EnableWindow(back_button_hwnd, FALSE);
+            let _ = EnableWindow(forward_button_hwnd, FALSE);
         }
 
         info!("Native toolbar created successfully");
@@ -293,6 +346,8 @@ impl Toolbar {
             refresh_button_hwnd,
             new_tab_button_hwnd,
             debug_toggle_hwnd,
+            bookmark_button_hwnd,
+            bookmark_dropdown_hwnd,
             tab_button_hwnds: Vec::new(),
             tab_close_hwnds: Vec::new(),
             base_height,
@@ -302,6 +357,8 @@ impl Toolbar {
             debug_focused: false,
             is_debug_visible: false,
             current_width: 0,
+            is_bookmarked: false,
+            bookmark_callback: None,
         })
     }
 
@@ -416,7 +473,7 @@ impl Toolbar {
     /// 调整工具栏大小
     pub fn resize(&mut self, width: i32) {
         self.current_width = width;
-        
+
         unsafe {
             // 调整工具栏容器大小
             let _ = MoveWindow(
@@ -426,13 +483,35 @@ impl Toolbar {
                 TRUE,
             );
 
-            // 计算地址栏宽度（填充剩余空间）
-            let address_width = width - NAV_BUTTONS_WIDTH - BUTTON_WIDTH - DEBUG_BUTTON_WIDTH - BUTTON_MARGIN * 3;
+            // 计算地址栏宽度（填充剩余空间，考虑书签按钮）
+            let address_width = width - NAV_BUTTONS_WIDTH - BUTTON_WIDTH - DEBUG_BUTTON_WIDTH - BOOKMARK_BUTTON_WIDTH - 24 - BUTTON_MARGIN * 4;
             let _ = MoveWindow(
                 self.address_bar_hwnd,
                 NAV_BUTTONS_WIDTH,
                 TAB_BAR_HEIGHT as i32 + 8,
                 if address_width > 0 { address_width } else { 100 },
+                BUTTON_HEIGHT,
+                TRUE,
+            );
+
+            // 调整书签按钮位置（在地址栏右侧）
+            let bookmark_x = NAV_BUTTONS_WIDTH + address_width + BUTTON_MARGIN;
+            let _ = MoveWindow(
+                self.bookmark_button_hwnd,
+                bookmark_x,
+                TAB_BAR_HEIGHT as i32 + 8,
+                BOOKMARK_BUTTON_WIDTH,
+                BUTTON_HEIGHT,
+                TRUE,
+            );
+
+            // 调整书签下拉按钮位置
+            let bookmark_dropdown_x = bookmark_x + BOOKMARK_BUTTON_WIDTH;
+            let _ = MoveWindow(
+                self.bookmark_dropdown_hwnd,
+                bookmark_dropdown_x,
+                TAB_BAR_HEIGHT as i32 + 8,
+                24,
                 BUTTON_HEIGHT,
                 TRUE,
             );
@@ -470,6 +549,51 @@ impl Toolbar {
                 TRUE,
             );
         }
+    }
+
+    /// 设置后退按钮启用/禁用状态
+    pub fn set_back_enabled(&self, enabled: bool) {
+        unsafe {
+            let _ = EnableWindow(self.back_button_hwnd, if enabled { TRUE } else { FALSE });
+        }
+    }
+
+    /// 设置前进按钮启用/禁用状态
+    pub fn set_forward_enabled(&self, enabled: bool) {
+        unsafe {
+            let _ = EnableWindow(self.forward_button_hwnd, if enabled { TRUE } else { FALSE });
+        }
+    }
+
+    /// 设置书签按钮状态（已收藏/未收藏）
+    pub fn set_bookmarked(&mut self, is_bookmarked: bool) {
+        self.is_bookmarked = is_bookmarked;
+        unsafe {
+            let text = if is_bookmarked { "★" } else { "☆" };
+            let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+            let _ = SendMessageW(
+                self.bookmark_button_hwnd,
+                WM_SETTEXT,
+                WPARAM(0),
+                LPARAM(wide.as_ptr() as isize),
+            );
+        }
+    }
+
+    /// 设置书签菜单回调
+    pub fn set_bookmark_callback<F>(&mut self, callback: F)
+    where
+        F: Fn(&str) + 'static,
+    {
+        self.bookmark_callback = Some(Box::new(callback));
+    }
+
+    /// 显示书签菜单（简化实现：使用消息框或创建简单菜单）
+    fn show_bookmark_menu(&self, bookmarks: &[(String, String)]) {
+        // 简化实现：通过回调通知浏览器显示书签菜单
+        // 实际实现可以使用 Windows 的 TrackPopupMenu
+        // 这里我们使用一个简单的对话框或回调来处理
+        info!("Bookmark menu requested with {} items", bookmarks.len());
     }
 
     /// 更新标签按钮
@@ -622,6 +746,12 @@ impl Toolbar {
                     if self.debug_toggle_hwnd.0 as usize == ctrl_id {
                         return Some(ToolbarAction::ToggleDebug);
                     }
+                    if self.bookmark_button_hwnd.0 as usize == ctrl_id {
+                        return Some(ToolbarAction::ToggleBookmark);
+                    }
+                    if self.bookmark_dropdown_hwnd.0 as usize == ctrl_id {
+                        return Some(ToolbarAction::ShowBookmarkMenu);
+                    }
                 }
 
                 // 检查标签按钮
@@ -713,6 +843,9 @@ pub enum ToolbarAction {
     SwitchTab(usize),
     CloseTab(usize),
     ToggleDebug,
+    ToggleBookmark,
+    ShowBookmarkMenu,
+    OpenBookmark(String),
 }
 
 #[cfg(windows)]
@@ -752,6 +885,12 @@ impl Drop for Toolbar {
             if !self.new_tab_button_hwnd.is_invalid() {
                 let _ = DestroyWindow(self.new_tab_button_hwnd);
             }
+            if !self.bookmark_button_hwnd.is_invalid() {
+                let _ = DestroyWindow(self.bookmark_button_hwnd);
+            }
+            if !self.bookmark_dropdown_hwnd.is_invalid() {
+                let _ = DestroyWindow(self.bookmark_dropdown_hwnd);
+            }
             if !self.toolbar_hwnd.is_invalid() {
                 let _ = DestroyWindow(self.toolbar_hwnd);
             }
@@ -769,6 +908,8 @@ pub const TOOLBAR_HEIGHT: u32 = 40;
 pub const TAB_BAR_HEIGHT: u32 = 28;
 #[cfg(not(windows))]
 pub const DEBUG_PANEL_HEIGHT: i32 = 100;
+#[cfg(not(windows))]
+pub const BOOKMARK_BUTTON_WIDTH: i32 = 30;
 
 #[cfg(not(windows))]
 #[derive(Debug, Clone)]
@@ -781,6 +922,9 @@ pub enum ToolbarAction {
     SwitchTab(usize),
     CloseTab(usize),
     ToggleDebug,
+    ToggleBookmark,
+    ShowBookmarkMenu,
+    OpenBookmark(String),
 }
 
 #[cfg(not(windows))]
@@ -836,6 +980,12 @@ impl Toolbar {
     pub fn focus_address(&mut self) {}
 
     pub fn focus_debug(&mut self) {}
+
+    pub fn set_back_enabled(&self, _enabled: bool) {}
+
+    pub fn set_forward_enabled(&self, _enabled: bool) {}
+
+    pub fn set_bookmarked(&mut self, _is_bookmarked: bool) {}
 
     pub fn handle_message(&self, _msg: u32, _wparam: usize, _lparam: isize) -> Option<ToolbarAction> {
         None

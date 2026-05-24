@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::io::Read;
 use url::Url;
 
+use crate::cookies;
+
 /// HTTP 响应
 #[derive(Debug, Clone)]
 pub struct HttpResponse {
@@ -21,18 +23,54 @@ impl HttpResponse {
 }
 
 /// 网络管理器
-pub struct NetworkManager;
+pub struct NetworkManager {
+    /// 当前页面 URL（用于 Referer 头）
+    current_url: String,
+}
 
 impl NetworkManager {
     pub fn new() -> Self {
-        Self
+        Self {
+            current_url: String::new(),
+        }
+    }
+
+    /// 设置当前页面 URL（导航时调用）
+    pub fn set_current_url(&mut self, url: &str) {
+        self.current_url = url.to_string();
+    }
+
+    /// 获取当前页面 URL
+    pub fn current_url(&self) -> &str {
+        &self.current_url
     }
 
     /// 发送 HTTP GET 请求
     pub fn get(&self, url: &str) -> Result<HttpResponse> {
         info!("HTTP GET: {}", url);
-        
-        let response = ureq::get(url)
+
+        let parsed_url = Url::parse(url)?;
+
+        // 获取 Cookie 字符串
+        let cookie_str = cookies::get_cookies(&parsed_url);
+
+        // 构建请求，设置通用头
+        let mut request = ureq::get(url)
+            .set("User-Agent", "SimpleBrowser/1.0 (Windows)")
+            .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .set("Accept-Language", "en-US,en;q=0.5");
+
+        // 设置 Cookie 头
+        if !cookie_str.is_empty() {
+            request = request.set("Cookie", &cookie_str);
+        }
+
+        // 设置 Referer 头
+        if !self.current_url.is_empty() {
+            request = request.set("Referer", &self.current_url);
+        }
+
+        let response = request
             .call()
             .map_err(|e| anyhow!("HTTP GET failed: {}", e))?;
 
@@ -41,6 +79,19 @@ impl NetworkManager {
             .header("Content-Type")
             .unwrap_or("text/html")
             .to_string();
+
+        // 处理 Set-Cookie 响应头
+        let set_cookies: Vec<String> = response
+            .headers_names()
+            .iter()
+            .filter_map(|name| {
+                if name.eq_ignore_ascii_case("Set-Cookie") {
+                    response.header(name).map(|v| v.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         let mut headers = HashMap::new();
         for name in response.headers_names() {
@@ -51,6 +102,11 @@ impl NetworkManager {
 
         let mut body = Vec::new();
         response.into_reader().read_to_end(&mut body)?;
+
+        // 解析 Set-Cookie 头
+        for cookie_header in &set_cookies {
+            cookies::parse_set_cookie(cookie_header, &parsed_url);
+        }
 
         info!("HTTP GET completed: status={}, bytes={}", status, body.len());
 
@@ -66,14 +122,48 @@ impl NetworkManager {
     pub fn post(&self, url: &str, data: &[u8], content_type: &str) -> Result<HttpResponse> {
         info!("HTTP POST: {} ({} bytes)", url, data.len());
 
-        let response = ureq::post(url)
+        let parsed_url = Url::parse(url)?;
+
+        // 获取 Cookie 字符串
+        let cookie_str = cookies::get_cookies(&parsed_url);
+
+        // 构建请求，设置通用头
+        let mut request = ureq::post(url)
             .set("Content-Type", content_type)
+            .set("User-Agent", "SimpleBrowser/1.0 (Windows)")
+            .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .set("Accept-Language", "en-US,en;q=0.5");
+
+        // 设置 Cookie 头
+        if !cookie_str.is_empty() {
+            request = request.set("Cookie", &cookie_str);
+        }
+
+        // 设置 Referer 头
+        if !self.current_url.is_empty() {
+            request = request.set("Referer", &self.current_url);
+        }
+
+        let response = request
             .send_bytes(data)
             .map_err(|e| anyhow!("HTTP POST failed: {}", e))?;
 
         let status = response.status();
         let response_content_type = response.header("Content-Type").unwrap_or("text/html").to_string();
-        
+
+        // 处理 Set-Cookie 响应头
+        let set_cookies: Vec<String> = response
+            .headers_names()
+            .iter()
+            .filter_map(|name| {
+                if name.eq_ignore_ascii_case("Set-Cookie") {
+                    response.header(name).map(|v| v.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         let mut headers = HashMap::new();
         for name in response.headers_names() {
             if let Some(value) = response.header(&name) {
@@ -83,6 +173,11 @@ impl NetworkManager {
 
         let mut body = Vec::new();
         response.into_reader().read_to_end(&mut body)?;
+
+        // 解析 Set-Cookie 头
+        for cookie_header in &set_cookies {
+            cookies::parse_set_cookie(cookie_header, &parsed_url);
+        }
 
         info!("HTTP POST completed: status={}", status);
 
@@ -95,9 +190,9 @@ impl NetworkManager {
     }
 
     /// 获取资源内容
-    pub fn fetch(&self, url: &str) -> Result<Resource> {
+    pub fn fetch(&mut self, url: &str) -> Result<Resource> {
         let parsed_url = Url::parse(url)?;
-        
+
         match parsed_url.scheme() {
             "http" | "https" => {
                 let response = self.get(url)?;
