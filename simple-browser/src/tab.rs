@@ -70,11 +70,10 @@ impl Tab {
             return self.page_title.clone();
         }
         // 使用域名作为简短标题
-        if let Ok(url) = url::Url::parse(&self.current_url) {
-            if let Some(host) = url.host_str() {
+        if let Ok(url) = url::Url::parse(&self.current_url)
+            && let Some(host) = url.host_str() {
                 return host.to_string();
             }
-        }
         self.current_url.clone()
     }
 }

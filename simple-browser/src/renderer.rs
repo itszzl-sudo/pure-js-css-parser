@@ -197,7 +197,6 @@ pub struct PageRenderer {
     bind_group: Option<wgpu::BindGroup>,
     render_pipeline: Option<wgpu::RenderPipeline>,
     toolbar_uniform_buffer: Option<wgpu::Buffer>,
-    toolbar_bind_group: Option<wgpu::BindGroup>,
     /// 工具栏高度（像素）
     toolbar_height: u32,
 }
@@ -218,7 +217,6 @@ impl PageRenderer {
             bind_group: None,
             render_pipeline: None,
             toolbar_uniform_buffer: None,
-            toolbar_bind_group: None,
             toolbar_height: 0,
         })
     }
@@ -423,8 +421,8 @@ impl PageRenderer {
             size.height
         };
 
-        if let Some(ref texture) = self.texture {
-            if rgba.width() == size.width && rgba.height() == content_height {
+        if let Some(ref texture) = self.texture
+            && rgba.width() == size.width && rgba.height() == content_height {
                 self.renderer.queue().write_texture(
                     wgpu::ImageCopyTexture {
                         texture,
@@ -445,7 +443,6 @@ impl PageRenderer {
                     },
                 );
             }
-        }
 
         // 更新工具栏 uniform
         let toolbar_ratio = if size.height > 0 {
@@ -464,7 +461,7 @@ impl PageRenderer {
         }
 
         // 渲染到屏幕
-        if let (Some(ref bind_group), Some(ref render_pipeline)) =
+        if let (Some(bind_group), Some(render_pipeline)) =
             (self.bind_group.as_ref(), self.render_pipeline.as_ref())
         {
             self.renderer.render(|encoder, view| {

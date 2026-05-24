@@ -21,7 +21,8 @@ pub enum EventType {
 }
 
 impl EventType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    /// Parse event type from string
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "click" => Some(EventType::Click),
             "mousedown" => Some(EventType::MouseDown),
@@ -142,7 +143,7 @@ impl EventManager {
     ) {
         self.element_handlers
             .entry((node_id, event_type))
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(handler);
         info!("Added event listener: node_id={}, event={:?}", node_id, event_type);
     }
@@ -156,7 +157,7 @@ impl EventManager {
     pub fn add_global_listener(&mut self, event_type: EventType, handler: EventHandler) {
         self.global_handlers
             .entry(event_type)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(handler);
     }
 

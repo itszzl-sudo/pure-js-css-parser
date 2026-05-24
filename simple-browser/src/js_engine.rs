@@ -91,7 +91,7 @@ impl JsEngine {
         self.context.global().map_err(|e| anyhow!("{:?}", e))
     }
 
-    pub fn add_callback<'a, F>(
+    pub fn add_callback<F>(
         &self,
         name: &str,
         callback: impl quickjs_rusty::Callback<F> + 'static,

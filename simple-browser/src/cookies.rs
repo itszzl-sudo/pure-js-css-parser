@@ -36,7 +36,7 @@ pub struct CookieEntry {
 impl CookieEntry {
     /// 检查 cookie 是否已过期
     pub fn is_expired(&self) -> bool {
-        self.expires.map_or(false, |exp| Instant::now() > exp)
+        self.expires.is_some_and(|exp| Instant::now() > exp)
     }
 }
 
@@ -51,11 +51,10 @@ pub fn get_cookies(url: &Url) -> String {
 
         let mut cookies = Vec::new();
         for (_, entry) in jar.iter() {
-            if entry.domain == host && path.starts_with(&entry.path) {
-                if !entry.secure || url.scheme() == "https" {
+            if entry.domain == host && path.starts_with(&entry.path)
+                && (!entry.secure || url.scheme() == "https") {
                     cookies.push(format!("{}={}", entry.name, entry.value));
                 }
-            }
         }
         return cookies.join("; ");
     }
@@ -133,11 +132,10 @@ pub fn parse_set_cookie(header: &str, request_url: &Url) {
             }
         } else if let Some(val) = attr.strip_prefix("Expires=") {
             // 如果已设置 Max-Age 则跳过
-            if expires.is_none() {
-                if let Some(exp) = parse_expires(val.trim()) {
+            if expires.is_none()
+                && let Some(exp) = parse_expires(val.trim()) {
                     expires = Some(exp);
                 }
-            }
         }
     }
 

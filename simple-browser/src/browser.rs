@@ -87,7 +87,7 @@ impl SimpleBrowser {
         // 设置 DOM API 到 JS 引擎
         {
             let js = tab.js_engine.borrow();
-            setup_dom_js_api(&*js, tab.dom_bridge.clone())?;
+            setup_dom_js_api(&js, tab.dom_bridge.clone())?;
         }
 
         // 创建 Windows 原生工具栏
@@ -148,7 +148,7 @@ impl SimpleBrowser {
         // 设置 DOM API
         {
             let js = tab.js_engine.borrow();
-            setup_dom_js_api(&*js, tab.dom_bridge.clone())?;
+            setup_dom_js_api(&js, tab.dom_bridge.clone())?;
         }
 
         let index = self.tabs.len();
@@ -544,18 +544,18 @@ impl SimpleBrowser {
 
                             browser.needs_redraw = true;
                         }
-                        WindowEvent::MouseInput { state, button, .. } => {
-                            if state == ElementState::Released
-                                && button == MouseButton::Left
-                            {
-                                let mouse_pos = {
-                                    let brw = browser.borrow();
-                                    let tab = &brw.tabs[brw.active_tab_index];
-                                    tab.event_manager.borrow().mouse_position()
-                                };
-                                let mut brw = browser.borrow_mut();
-                                brw.handle_click(mouse_pos.0, mouse_pos.1);
-                            }
+                        WindowEvent::MouseInput {
+                            state: ElementState::Released,
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            let mouse_pos = {
+                                let brw = browser.borrow();
+                                let tab = &brw.tabs[brw.active_tab_index];
+                                tab.event_manager.borrow().mouse_position()
+                            };
+                            let mut brw = browser.borrow_mut();
+                            brw.handle_click(mouse_pos.0, mouse_pos.1);
                         }
                         WindowEvent::CursorMoved { position, .. } => {
                             let brw = browser.borrow();
@@ -565,44 +565,37 @@ impl SimpleBrowser {
                         WindowEvent::KeyboardInput {
                             event: KeyEvent {
                                 state: ElementState::Pressed,
-                                physical_key,
+                                physical_key: PhysicalKey::Code(KeyCode::Enter),
                                 ..
                             },
                             ..
                         } => {
-                            match physical_key {
-                                PhysicalKey::Code(KeyCode::Enter) => {
-                                    // 检查地址栏或调试面板是否有焦点
-                                    {
-                                        let brw = browser.borrow();
-                                        #[cfg(windows)]
-                                        let (address_focused, debug_focused) = brw.toolbar.as_ref()
-                                            .map(|t| (t.is_address_focused(), t.is_debug_focused()))
-                                            .unwrap_or((false, false));
-                                        #[cfg(not(windows))]
-                                        let (address_focused, debug_focused) = (false, false);
-                                        drop(brw);
+                            // 检查地址栏或调试面板是否有焦点
+                            let brw = browser.borrow();
+                            #[cfg(windows)]
+                            let (address_focused, debug_focused) = brw.toolbar.as_ref()
+                                .map(|t| (t.is_address_focused(), t.is_debug_focused()))
+                                .unwrap_or((false, false));
+                            #[cfg(not(windows))]
+                            let (address_focused, debug_focused) = (false, false);
+                            drop(brw);
 
-                                        if address_focused {
-                                            // 从地址栏导航 - 普通标签页
-                                            let mut brw = browser.borrow_mut();
-                                            brw.handle_toolbar_action(ToolbarAction::Go);
-                                        } else if debug_focused {
-                                            // 从调试面板导航 - 调试标签页
-                                            #[cfg(windows)]
-                                            {
-                                                let url = browser.borrow().toolbar.as_ref()
-                                                    .map(|t| t.get_debug_text())
-                                                    .unwrap_or_default();
-                                                if !url.is_empty() {
-                                                    let mut brw = browser.borrow_mut();
-                                                    let _ = brw.navigate(&url, true);
-                                                }
-                                            }
-                                        }
+                            if address_focused {
+                                // 从地址栏导航 - 普通标签页
+                                let mut brw = browser.borrow_mut();
+                                brw.handle_toolbar_action(ToolbarAction::Go);
+                            } else if debug_focused {
+                                // 从调试面板导航 - 调试标签页
+                                #[cfg(windows)]
+                                {
+                                    let url = browser.borrow().toolbar.as_ref()
+                                        .map(|t| t.get_debug_text())
+                                        .unwrap_or_default();
+                                    if !url.is_empty() {
+                                        let mut brw = browser.borrow_mut();
+                                        let _ = brw.navigate(&url, true);
                                     }
                                 }
-                                _ => {}
                             }
                         }
                         WindowEvent::RedrawRequested => {
@@ -733,7 +726,7 @@ fn get_hwnd_from_window(window: &Arc<Window>) -> Result<isize> {
 
     match handle.as_raw() {
         RawWindowHandle::Win32(win32_handle) => {
-            Ok(win32_handle.hwnd.get() as isize)
+            Ok(win32_handle.hwnd.get())
         }
         _ => Err(anyhow!("Not a Win32 window")),
     }
@@ -756,11 +749,10 @@ pub fn simplify_url(url: &str) -> String {
     
     if url.starts_with("http://") || url.starts_with("https://") {
         // 提取域名
-        if let Ok(parsed) = url::Url::parse(url) {
-            if let Some(host) = parsed.host_str() {
+        if let Ok(parsed) = url::Url::parse(url)
+            && let Some(host) = parsed.host_str() {
                 return host.to_string();
             }
-        }
         // 如果解析失败，使用简单字符串分割
         return url.split('/').nth(2).unwrap_or(url).to_string();
     }
